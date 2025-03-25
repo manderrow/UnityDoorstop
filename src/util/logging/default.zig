@@ -21,39 +21,38 @@ const CFmtFormatter = struct {
             var chunk = chunkIn;
             if (chunk.len == 0) {
                 chunk = iter.next() orelse return error.InvalidCFormatString;
-                chunk = chunk[1..];
                 try writer.writeByte('%');
-                try writer.writeAll(chunk);
-                continue;
+            } else {
+                switch (chunk[0]) {
+                    's' => {
+                        const s = @cVaArg(&args, [*:0]const u8);
+                        try writer.writeAll(std.mem.span(s));
+                    },
+                    'l' => {
+                        if (chunk.len < 2) {
+                            return error.InvalidCFormatString;
+                        }
+                        switch (chunk[1]) {
+                            's' => {
+                                const s = @cVaArg(&args, [*:0]const u16);
+                                try writer.print("{}", .{std.unicode.fmtUtf16Le(std.mem.span(s))});
+                            },
+                            else => return error.UnrecognizedCFormatSpecifier,
+                        }
+                    },
+                    'd' => {
+                        const value = @cVaArg(&args, i32);
+                        try writer.print("{}", .{value});
+                    },
+                    'p' => {
+                        const value = @cVaArg(&args, *anyopaque);
+                        try writer.print(std.fmt.comptimePrint("{{:0>{}}}", .{@sizeOf(*anyopaque) * 2}), .{@intFromPtr(value)});
+                    },
+                    else => return error.UnrecognizedCFormatSpecifier,
+                }
             }
-
-            switch (chunk[0]) {
-                's' => {
-                    const s = @cVaArg(&args, [*:0]const u8);
-                    try writer.writeAll(std.mem.span(s));
-                },
-                'l' => {
-                    if (chunk.len < 2) {
-                        return error.InvalidCFormatString;
-                    }
-                    switch (chunk[1]) {
-                        's' => {
-                            const s = @cVaArg(&args, [*:0]const u16);
-                            try writer.print("{}", .{std.unicode.fmtUtf16Le(std.mem.span(s))});
-                        },
-                        else => return error.UnrecognizedCFormatSpecifier,
-                    }
-                },
-                'd' => {
-                    const value = @cVaArg(&args, i32);
-                    try writer.print("{}", .{value});
-                },
-                'p' => {
-                    const value = @cVaArg(&args, *anyopaque);
-                    try writer.print(std.fmt.comptimePrint("{{:0>{}}}", .{@sizeOf(*anyopaque) * 2}), .{@intFromPtr(value)});
-                },
-                else => return error.UnrecognizedCFormatSpecifier,
-            }
+            chunk = chunk[1..];
+            try writer.writeAll(chunk);
         }
     }
 };
