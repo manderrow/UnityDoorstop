@@ -95,6 +95,8 @@ int dup2_hook(int od, int nd) {
 }
 
 __attribute__((constructor)) void doorstop_ctor() {
+    log_info("Injecting");
+
     load_config();
 
     if (!config.enabled) {

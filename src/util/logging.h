@@ -1,19 +1,65 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
-#ifdef VERBOSE
+#ifdef _WIN32
 
-#define LOG(message, ...) printf("[Doorstop] " message "\n", ##__VA_ARGS__)
+extern void log_err(const char *message);
+extern void log_warn(const char *message);
+extern void log_info(const char *message);
+extern void log_debug(const char *message);
+
+#define LOG_L(f, message, ...)                                                 \
+    {                                                                          \
+        char message_buf[128];                                                 \
+        int result = snprintf(&message_buf, 128, message, ##__VA_ARGS__);      \
+        if (result < 0) {                                                      \
+            log_err("error formatting log message");                           \
+        } else if (result > 128) {                                             \
+            int cap = result;                                                  \
+            char *big_buf = malloc(cap);                                       \
+            result = snprintf(&message_buf, cap, message, ##__VA_ARGS__);      \
+            if (result < 0) {                                                  \
+                log_err("error formatting log message");                       \
+            } else if (result > cap) {                                         \
+                log_err("error formatting log message: buffer too small "      \
+                        "again?!");                                            \
+            } else {                                                           \
+                f(big_buf);                                                    \
+            }                                                                  \
+            free(big_buf);                                                     \
+        } else {                                                               \
+            f(message_buf);                                                    \
+        }                                                                      \
+    }
+
+#define LOG(message, ...) LOG_L(log_debug, message, ##__VA_ARGS__)
 
 #define ASSERT_F(test, message, ...)                                           \
     if (!(test)) {                                                             \
-        printf("[Doorstop][Fatal] " message "\n", ##__VA_ARGS__);              \
+        LOG_L(log_err, message, ##__VA_ARGS__);                                \
         exit(1);                                                               \
     }
 
+#else
+
+extern void log_err(const char *message, ...);
+extern void log_warn(const char *message, ...);
+extern void log_info(const char *message, ...);
+extern void log_debug(const char *message, ...);
+
+#define LOG(message, ...) log_debug(message, ##__VA_ARGS__)
+
+#define ASSERT_F(test, message, ...)                                           \
+    if (!(test)) {                                                             \
+        log_err(message, ##__VA_ARGS__);                                       \
+        exit(1);                                                               \
+    }
+
+#endif
+
 #define ASSERT(test, message)                                                  \
     if (!(test)) {                                                             \
-        printf("[Doorstop][Fatal] " message "\n");                             \
+        log_err(message);                                                      \
         exit(1);                                                               \
     }
 
@@ -21,18 +67,5 @@
     if (!(test)) {                                                             \
         return __VA_ARGS__;                                                    \
     }
-
-#else
-
-/**
- * @brief Log a message in verbose mode
- */
-#define LOG(message, ...)
-
-#define ASSERT_F(test, message, ...)
-#define ASSERT(test, message)
-#define ASSERT_SOFT(test, ...)
-
-#endif
 
 #endif

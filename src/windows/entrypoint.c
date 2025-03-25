@@ -264,7 +264,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad,
 
 // TODO: Some MinGW distributons don't seem to have GetFinalPathNameByHandle
 // properly defined
-#if VERBOSE && !defined(__MINGW32__)
+#if !defined(__MINGW32__)
     LOG("Standard output handle at %p", stdout_handle);
     char_t handle_path[MAX_PATH] = TEXT("\0");
     GetFinalPathNameByHandle(stdout_handle, handle_path, MAX_PATH, 0);

@@ -12,8 +12,6 @@ pub fn build(b: *std.Build) !void {
         .link_libc = true,
     });
 
-    try lib_mod.c_macros.append(b.allocator, "-DVERBOSE");
-
     var c_source_files = std.ArrayListUnmanaged([]const u8){};
     try c_source_files.appendSlice(b.allocator, &.{
         "bootstrap.c",
