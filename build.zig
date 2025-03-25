@@ -61,12 +61,6 @@ pub fn build(b: *std.Build) !void {
         .root_module = lib_mod,
     });
 
-    if (target.result.os.tag == .windows) {
-        lib.linkSystemLibrary("shell32");
-        lib.linkSystemLibrary("kernel32");
-        lib.linkSystemLibrary("user32");
-    }
-
     b.installArtifact(lib);
 
     const lib_unit_tests = b.addTest(.{
