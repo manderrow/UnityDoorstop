@@ -50,7 +50,7 @@ const CFmtFormatter = struct {
                 },
                 'p' => {
                     const value = @cVaArg(&args, *anyopaque);
-                    try writer.print("{*}", .{value});
+                    try writer.print(std.fmt.comptimePrint("{{:0>{}}}", .{@sizeOf(*anyopaque) * 2}), .{@intFromPtr(value)});
                 },
                 else => return error.UnrecognizedCFormatSpecifier,
             }
