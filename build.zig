@@ -25,13 +25,13 @@ pub fn build(b: *std.Build) !void {
             try c_source_files.appendSlice(b.allocator, &.{ "nix/config.c", "nix/util.c" });
             if (os == .macos) {
                 try c_source_files.appendSlice(b.allocator, &.{
-                    "nix/plthook/plthook_osx.c",
-                    "nix/plthook/plthook_osx_ext.c",
+                    // the _ext.c file includes the vendored .c file
+                    "nix/plthook/osx/plthook_osx_ext.c",
                 });
             } else {
                 try c_source_files.appendSlice(b.allocator, &.{
-                    "nix/plthook/plthook_elf.c",
-                    "nix/plthook/plthook_elf_ext.c",
+                    // the _ext.c file includes the vendored .c file
+                    "nix/plthook/elf/plthook_elf_ext.c",
                 });
             }
             try c_source_files.appendSlice(b.allocator, &.{"nix/entrypoint.c"});

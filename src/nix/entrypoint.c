@@ -4,7 +4,8 @@
 #include "../util/logging.h"
 #include "../util/paths.h"
 #include "../util/util.h"
-#include "./plthook/plthook.h"
+#include "./plthook/plthook_ext.h"
+#include "./plthook/vendor/plthook.h"
 
 #if defined(__APPLE__)
 #define PLTHOOK_OPEN_BY_HANDLE_OR_ADDRESS plthook_open_by_handle
