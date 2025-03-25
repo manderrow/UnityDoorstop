@@ -61,8 +61,10 @@ int fclose_hook(FILE *stream) {
 
 char_t *default_boot_config_path = NULL;
 #if !defined(__APPLE__)
-FILE *fopen64_hook(char *filename, char *mode) {
-    char *actual_file_name = filename;
+extern FILE *fopen64(const char *filename, const char *mode);
+
+FILE *fopen64_hook(const char *filename, const char *mode) {
+    const char *actual_file_name = filename;
 
     if (strcmp(filename, default_boot_config_path) == 0) {
         actual_file_name = config.boot_config_override;
@@ -93,7 +95,6 @@ int dup2_hook(int od, int nd) {
 }
 
 __attribute__((constructor)) void doorstop_ctor() {
-    init_logger();
     load_config();
 
     if (!config.enabled) {

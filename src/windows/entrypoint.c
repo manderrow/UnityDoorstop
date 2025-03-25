@@ -84,7 +84,7 @@ HANDLE WINAPI create_file_hook(LPCWSTR lpFileName, DWORD dwDesiredAccess,
 
     if (strcmpi(normalised_path, default_boot_config_path) == 0) {
         actual_file_name = config.boot_config_override;
-        LOG("Overriding boot.config to %s", actual_file_name);
+        LOG("Overriding boot.config to %ls", actual_file_name);
     }
 
     free(normalised_path);
@@ -95,10 +95,10 @@ HANDLE WINAPI create_file_hook(LPCWSTR lpFileName, DWORD dwDesiredAccess,
 }
 
 HANDLE WINAPI create_file_hook_narrow(
-    void *lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+    LPSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
     LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition,
     DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
-    void *actual_file_name = lpFileName;
+    LPSTR actual_file_name = lpFileName;
 
     char_t *widened_filename = widen(lpFileName);
     char_t *normalised_path =
@@ -141,10 +141,10 @@ void *WINAPI get_proc_address_detour(void *module, char *name) {
     if (lstrcmpA(name, init_name) == 0) {                                      \
         if (!initialized) {                                                    \
             initialized = TRUE;                                                \
-            LOG("Got %S at %p", init_name, module);                            \
+            LOG("Got %s at %p", init_name, module);                            \
             extra_init;                                                        \
             init_func(module);                                                 \
-            LOG("Loaded all runtime functions\n")                              \
+            LOG("Loaded all runtime functions\n");                             \
         }                                                                      \
         return (void *)(target);                                               \
     }
@@ -184,14 +184,13 @@ void redirect_output_log(DoorstopPaths const *paths) {
     new_cmdline_args_narrow = narrow(new_cmdline_args);
 
     LOG("Redirected output log");
-    LOG("CMD line: %s", new_cmdline_args);
+    LOG("CMD line: %ls", new_cmdline_args);
 }
 
 void inject(DoorstopPaths const *paths) {
 
     if (!config.enabled) {
         LOG("Doorstop disabled!");
-        free_logger();
         return;
     }
 
@@ -244,7 +243,6 @@ void inject(DoorstopPaths const *paths) {
 
     if (!ok) {
         LOG("Failed to install IAT hook!");
-        free_logger();
     } else {
         LOG("Hooks installed, marking DOORSTOP_DISALBE = TRUE");
         setenv(TEXT("DOORSTOP_DISABLE"), TEXT("TRUE"), TRUE);
@@ -260,7 +258,6 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad,
 
     init_crt();
     bool_t fixed_cwd = fix_cwd();
-    init_logger();
     DoorstopPaths *paths = paths_init(hInstDll, fixed_cwd);
 
     stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);

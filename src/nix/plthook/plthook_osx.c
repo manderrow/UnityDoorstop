@@ -42,7 +42,9 @@
 #include <mach-o/dyld.h>
 #include <mach-o/fat.h>
 #include <mach-o/nlist.h>
-#include <mach-o/swap.h>
+
+#include "mach-o_swap.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

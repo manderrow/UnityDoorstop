@@ -7,12 +7,15 @@
 #define WIN_CRT_H
 
 #include "../util/util.h"
+#include <stdio.h>
 #include <windows.h>
 
 // Fix for MinGW's headers
-#if UNICODE
+#ifdef UNICODE
+#undef GetFinalPathNameByHandle
 #define GetFinalPathNameByHandle GetFinalPathNameByHandleW
 #else
+#undef GetFinalPathNameByHandle
 #define GetFinalPathNameByHandle GetFinalPathNameByHandleA
 #endif
 
@@ -56,9 +59,9 @@ extern char_t *getenv_wide(const char_t *name);
 
 extern void shutenv(char_t *val);
 
-extern void *fopen(char_t *filename, const char_t *mode);
-extern size_t fread(void *ptr, size_t size, size_t count, void *stream);
-extern int fclose(void *stream);
+// extern void *fopen(char_t *filename, const char_t *mode);
+// extern size_t fread(void *ptr, size_t size, size_t count, void *stream);
+// extern int fclose(void *stream);
 
 #ifndef UNICODE
 #define CommandLineToArgv CommandLineToArgvA

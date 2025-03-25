@@ -1,14 +1,26 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
-#if VERBOSE
+#ifdef VERBOSE
 
-#if _WIN32
-#include "../windows/logger.h"
+#define LOG(message, ...) printf("[Doorstop] " message "\n", ##__VA_ARGS__)
 
-#elif defined(__APPLE__) || defined(__linux__)
-#include "../nix/logger.h"
-#endif
+#define ASSERT_F(test, message, ...)                                           \
+    if (!(test)) {                                                             \
+        printf("[Doorstop][Fatal] " message "\n", ##__VA_ARGS__);              \
+        exit(1);                                                               \
+    }
+
+#define ASSERT(test, message)                                                  \
+    if (!(test)) {                                                             \
+        printf("[Doorstop][Fatal] " message "\n");                             \
+        exit(1);                                                               \
+    }
+
+#define ASSERT_SOFT(test, ...)                                                 \
+    if (!(test)) {                                                             \
+        return __VA_ARGS__;                                                    \
+    }
 
 #else
 
@@ -20,9 +32,6 @@
 #define ASSERT_F(test, message, ...)
 #define ASSERT(test, message)
 #define ASSERT_SOFT(test, ...)
-
-static inline void init_logger() {}
-static inline void free_logger() {}
 
 #endif
 

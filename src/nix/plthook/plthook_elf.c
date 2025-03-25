@@ -42,7 +42,7 @@
 #if defined(__linux__) && !defined(_GNU_SOURCE)
 #define _GNU_SOURCE
 #endif
-#include <dlfcn.h>
+#include "dlfcn_extra.h"
 #include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -63,7 +63,8 @@
 #endif
 #include "plthook.h"
 #include <elf.h>
-#include <link.h>
+
+#include "link_extra.h"
 
 #if defined __UCLIBC__ && !defined RTLD_NOLOAD
 #define RTLD_NOLOAD 0
