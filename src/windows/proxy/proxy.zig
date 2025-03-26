@@ -43,7 +43,7 @@ comptime {
     }
 }
 
-export fn load_functions(dll: std.os.windows.HMODULE) callconv(std.builtin.CallingConvention.c) void {
+export fn load_functions(dll: std.os.windows.HMODULE) void {
     inline for (comptime std.meta.fieldNames(@TypeOf(proxy_func_addrs))) |field| {
         @field(proxy_func_addrs, field) = std.os.windows.kernel32.GetProcAddress(dll, field).?;
     }

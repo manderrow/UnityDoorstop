@@ -5,7 +5,7 @@ const alloc = @import("../root.zig").alloc;
 
 pub const logger = std.log.scoped(.doorstop);
 
-export fn load_logger_config() callconv(.c) enum(u8) {
+export fn load_logger_config() enum(u8) {
     ok = 1,
     err = 0,
 } {
