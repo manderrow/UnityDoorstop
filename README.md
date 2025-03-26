@@ -4,10 +4,10 @@
 
 <h1 align="center">Unity Doorstop</h1>
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/NeighTools/UnityDoorstop/build-be.yml?branch=master)](https://github.com/NeighTools/UnityDoorstop/actions/workflows/build-be.yml)
-[![nightly.link artifacts](https://img.shields.io/badge/Artifacts-nightly.link-blueviolet)](https://nightly.link/NeighTools/UnityDoorstop/workflows/build-be/master)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/mpfaff/UnityDoorstop/build.yml?branch=master)](https://github.com/mpfaff/UnityDoorstop/actions/workflows/build.yml)
+[![nightly.link artifacts](https://img.shields.io/badge/Artifacts-nightly.link-blueviolet)](https://nightly.link/mpfaff/UnityDoorstop/workflows/build/master)
 
-***
+---
 
 Doorstop is a tool to execute managed .NET assemblies inside Unity as early as possible.
 
@@ -36,16 +36,7 @@ Depending on the runtime the game uses, Doorstop tries to run your assembly as f
 
 ## Building
 
-Doorstop uses [xmake](https://xmake.io/) to build the project. To build, run `build.bat`, `build.ps1` or `build.sh`.
-
-Available build options:
-
-* `-with_logging`: build with logging enabled
-* `-arch`: the architectures to build for, separated by commas (e.g. `-arch x86,x64`)
-* `-debug`: build in debug mode (currently only for *nix)
-
-> **Note:** Initial build times are usually slower because the build script automatically downloads and installs xmake.  
-> On Unix, xmake is built directly from the source code.
+Doorstop uses [zig](https://ziglang.org/) to build the project. To build, run `zig build`.
 
 ## Minimal injection example
 
@@ -92,18 +83,18 @@ Doorstop 4 supports debugging the assemblies in the runtime.
 
 #### Debugging in UnityMono
 
-To enable debugging, set `debug_enabled` to `true` and optionally change the debug server address via `debug_address` (see [configuration options](#doorstop-configuration)).  
-After launching the game, you may connect to the debugger using the server address (default is `127.0.0.1:10000`).  
+To enable debugging, set `debug_enabled` to `true` and optionally change the debug server address via `debug_address` (see [configuration options](#doorstop-configuration)).
+After launching the game, you may connect to the debugger using the server address (default is `127.0.0.1:10000`).
 By default, the game won't wait for the debugger to connect; you may change the behaviour with the `debug_suspend` option.
 
-> **If you use dnSpy**, you can use the `Debug > Start Debugging > Debug engine > Unity` option, automatically setting the correct debugging configuration.  
+> **If you use dnSpy**, you can use the `Debug > Start Debugging > Debug engine > Unity` option, automatically setting the correct debugging configuration.
 > Doorstop detects dnSpy and automatically enables debugging without any extra configuration.
 
 #### Debugging in Il2Cpp
 
-Debugging is automatically enabled in CoreCLR. 
+Debugging is automatically enabled in CoreCLR.
 
-To start debugging, compile your DLL in debug mode (with embedded or portable symbols) and start the game with the debugger of your choice.  
+To start debugging, compile your DLL in debug mode (with embedded or portable symbols) and start the game with the debugger of your choice.
 Alternatively, attach a debugger to the game once it is running. All standard CoreCLR debuggers should detect the CoreCLR runtime in the game.
 
 Moreover, hot reloading is supported for Visual Studio, Rider and other debuggers with .NET 6 hot reloading feature enabled.
@@ -145,5 +136,5 @@ All Doorstop arguments start with `--doorstop-` and always contain an argument. 
 
 ## License
 
-Doorstop 4 is licensed under LGPLv2.1. You can view the entire license [here](LICENSE).  
+Doorstop 4 is licensed under LGPLv2.1. You can view the entire license [here](LICENSE).
 You can still access the source code to the original UnityDoorstop 3 source (licensed under CC0) from [the legacy branch](https://github.com/NeighTools/UnityDoorstop/tree/legacy).
