@@ -16,14 +16,13 @@ pub fn build(b: *std.Build) !void {
     var c_source_files = std.ArrayListUnmanaged([]const u8){};
     try c_source_files.appendSlice(b.allocator, &.{
         "bootstrap.c",
-        "config/common.c",
         "util/paths.c",
         "runtimes/globals.c",
     });
 
     switch (target.result.os.tag) {
         .linux, .macos => |os| {
-            try c_source_files.appendSlice(b.allocator, &.{ "nix/config.c", "nix/util.c" });
+            try c_source_files.appendSlice(b.allocator, &.{"nix/util.c"});
             if (os == .macos) {
                 try c_source_files.appendSlice(b.allocator, &.{
                     // the _ext.c file includes the vendored .c file
@@ -39,7 +38,6 @@ pub fn build(b: *std.Build) !void {
         },
         .windows => {
             try c_source_files.appendSlice(b.allocator, &.{
-                "windows/config.c",
                 "windows/entrypoint.c",
                 "windows/util.c",
                 "windows/wincrt.c",
@@ -54,6 +52,8 @@ pub fn build(b: *std.Build) !void {
         .root = b.path("src"),
         .files = c_source_files.items,
     });
+
+    lib_mod.addIncludePath(b.path("src"));
 
     const lib = b.addLibrary(.{
         .linkage = .dynamic,

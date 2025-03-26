@@ -12,6 +12,7 @@ pub const std_options = std.Options{
 };
 
 comptime {
+    _ = @import("config.zig");
     _ = logging;
     if (builtin.os.tag == .windows) {
         _ = @import("windows/proxy/proxy.zig");

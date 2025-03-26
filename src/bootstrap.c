@@ -338,8 +338,12 @@ void hook_mono_jit_parse_options(int argc, char **argv) {
         char **new_argv = calloc(size, sizeof(char *));
         memcpy(new_argv, argv, argc * sizeof(char *));
 
+        const char_t *mono_debug_address = config.mono_debug_address;
+        if (!mono_debug_address) {
+            mono_debug_address = "127.0.0.1:10000";
+        }
         size_t debug_args_len =
-            STR_LEN(MONO_DEBUG_ARG_START) + strlen(config.mono_debug_address);
+            STR_LEN(MONO_DEBUG_ARG_START) + strlen(mono_debug_address);
         if (!config.mono_debug_suspend) {
             if (mono_is_net35) {
                 debug_args_len += STR_LEN(MONO_DEBUG_NO_SUSPEND_NET35);
@@ -351,7 +355,7 @@ void hook_mono_jit_parse_options(int argc, char **argv) {
         if (!debug_options) {
             debug_options = calloc(debug_args_len + 1, sizeof(char_t));
             strcat(debug_options, MONO_DEBUG_ARG_START);
-            strcat(debug_options, config.mono_debug_address);
+            strcat(debug_options, mono_debug_address);
             if (!config.mono_debug_suspend) {
                 if (mono_is_net35) {
                     strcat(debug_options, MONO_DEBUG_NO_SUSPEND_NET35);
