@@ -1,0 +1,62 @@
+name: Build
+
+on:
+    push:
+        branches:
+            - "**"
+        tags-ignore:
+            - "**"
+    pull_request:
+    release:
+        types: [published]
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+            - uses: mlugg/setup-zig@v1
+              with:
+                  version: 0.14.0
+            - name: "Build for x86_64-linux"
+              run: |
+                  zig build -Doptimize=ReleaseFast -Dtarget=x86_64-linux
+            - name: "Build for x86_64-macos"
+              run: |
+                  zig build -Doptimize=ReleaseFast -Dtarget=x86_64-macos
+            - name: "Build for x86_64-windows"
+              run: |
+                  zig build -Doptimize=ReleaseFast -Dtarget=x86_64-windows
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: Artifacts
+                  path: |
+                      zig-out/bin/*
+                      zig-out/lib/*
+                  if-no-files-found: error
+            - name: Create release
+              if: startsWith(github.ref, 'refs/tags/')
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      zig-out/bin/*
+                      zig-out/lib/*
+                  fail_on_unmatched_files: true
+            - name: Create CI release
+              if: github.ref == 'refs/heads/master'
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      zig-out/bin/*
+                      zig-out/lib/*
+                  prerelease: true
+                  tag_name: ci
+                  name: "CI build"
+                  generate_release_notes: true
+                  fail_on_unmatched_files: true
