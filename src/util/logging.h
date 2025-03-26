@@ -1,6 +1,8 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
+extern void load_logger_config();
+
 #ifdef _WIN32
 
 extern void log_err(const char *message);

@@ -96,6 +96,8 @@ int dup2_hook(int od, int nd) {
 }
 
 __attribute__((constructor)) void doorstop_ctor() {
+    load_logger_config();
+
     log_info("Injecting");
 
     load_config();
