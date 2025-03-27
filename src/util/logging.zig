@@ -9,7 +9,10 @@ export fn load_logger_config() enum(u8) {
     ok = 1,
     err = 0,
 } {
-    const log_mode_str = std.process.getEnvVarOwned(alloc, "DOORSTOP_LOG_MODE") catch |e| switch (e) {
+    const log_mode_str = std.process.getEnvVarOwned(
+        alloc,
+        "DOORSTOP_LOG_MODE",
+    ) catch |e| switch (e) {
         error.EnvironmentVariableNotFound => return .ok,
         else => {
             logger.err("Error loading logger config: {}", .{e});
@@ -31,7 +34,12 @@ const LogMode = enum {
 
 pub var log_mode: LogMode = .text;
 
-pub fn log(comptime message_level: std.log.Level, comptime scope: @TypeOf(.enum_literal), comptime format: []const u8, args: anytype) void {
+pub fn log(
+    comptime message_level: std.log.Level,
+    comptime scope: @TypeOf(.enum_literal),
+    comptime format: []const u8,
+    args: anytype,
+) void {
     const level_txt = comptime message_level.asText();
     const scope_txt = comptime @tagName(scope);
     const stderr = std.io.getStdErr().writer();
@@ -43,7 +51,10 @@ pub fn log(comptime message_level: std.log.Level, comptime scope: @TypeOf(.enum_
     nosuspend {
         switch (log_mode) {
             .text => {
-                writer.print(level_txt ++ " " ++ scope_txt ++ " " ++ format ++ "\n", args) catch return;
+                writer.print(
+                    level_txt ++ " " ++ scope_txt ++ " " ++ format ++ "\n",
+                    args,
+                ) catch return;
             },
         }
         bw.flush() catch return;
@@ -52,6 +63,8 @@ pub fn log(comptime message_level: std.log.Level, comptime scope: @TypeOf(.enum_
 
 comptime {
     _ = switch (builtin.os.tag) {
+        // Zig currently does not support defining variadic callconv(.c) functions, so
+        // we use a fallback implementation that formats in C instead.
         .windows => @import("logging/windows.zig"),
         else => @import("logging/default.zig"),
     };

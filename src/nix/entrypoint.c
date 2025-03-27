@@ -7,12 +7,6 @@
 #include "./plthook/plthook_ext.h"
 #include "./plthook/vendor/plthook.h"
 
-#if defined(__APPLE__)
-#define PLTHOOK_OPEN_BY_HANDLE_OR_ADDRESS plthook_open_by_handle
-#else
-#define PLTHOOK_OPEN_BY_HANDLE_OR_ADDRESS plthook_open_by_address
-#endif
-
 void capture_mono_path(void *handle) {
     char_t *result;
     get_module_path(handle, &result, NULL, 0);
@@ -107,24 +101,21 @@ __attribute__((constructor)) void doorstop_ctor() {
         return;
     }
 
-    plthook_t *hook;
+    plthook_t *hook = plthook_open_by_filename("UnityPlayer");
 
-    void *unity_player = plthook_handle_by_name("UnityPlayer");
-
-    if (unity_player &&
-        PLTHOOK_OPEN_BY_HANDLE_OR_ADDRESS(&hook, unity_player) == 0) {
+    if (hook) {
         LOG("Found UnityPlayer, hooking into it instead");
     } else if (plthook_open(&hook, NULL) != 0) {
-        LOG("Failed to open current process PLT! Cannot run Doorstop! "
-            "Error: "
-            "%s\n",
-            plthook_error());
+        log_err("Failed to open current process PLT! Cannot run Doorstop! "
+                "Error: "
+                "%s\n",
+                plthook_error());
         return;
     }
 
     if (plthook_replace(hook, "dlsym", &dlsym_hook, NULL) != 0)
-        printf("Failed to hook dlsym, ignoring it. Error: %s\n",
-               plthook_error());
+        log_err("Failed to hook dlsym, ignoring it. Error: %s\n",
+                plthook_error());
 
     if (config.boot_config_override) {
         if (file_exists(config.boot_config_override)) {
@@ -138,12 +129,12 @@ __attribute__((constructor)) void doorstop_ctor() {
 
 #if !defined(__APPLE__)
             if (plthook_replace(hook, "fopen64", &fopen64_hook, NULL) != 0)
-                printf("Failed to hook fopen64, ignoring it. Error: %s\n",
-                       plthook_error());
+                log_err("Failed to hook fopen64, ignoring it. Error: %s\n",
+                        plthook_error());
 #endif
             if (plthook_replace(hook, "fopen", &fopen_hook, NULL) != 0)
-                printf("Failed to hook fopen, ignoring it. Error: %s\n",
-                       plthook_error());
+                log_err("Failed to hook fopen, ignoring it. Error: %s\n",
+                        plthook_error());
         } else {
             LOG("The boot.config file won't be overriden because the provided "
                 "one does not exist: %s",
@@ -152,12 +143,12 @@ __attribute__((constructor)) void doorstop_ctor() {
     }
 
     if (plthook_replace(hook, "fclose", &fclose_hook, NULL) != 0)
-        printf("Failed to hook fclose, ignoring it. Error: %s\n",
-               plthook_error());
+        log_err("Failed to hook fclose, ignoring it. Error: %s\n",
+                plthook_error());
 
     if (plthook_replace(hook, "dup2", &dup2_hook, NULL) != 0)
-        printf("Failed to hook dup2, ignoring it. Error: %s\n",
-               plthook_error());
+        log_err("Failed to hook dup2, ignoring it. Error: %s\n",
+                plthook_error());
 
 #if defined(__APPLE__)
     /*
@@ -165,13 +156,15 @@ __attribute__((constructor)) void doorstop_ctor() {
        loader directly. Because of this, there is no dlsym, in which case we
        need to apply a PLT hook.
     */
-    void *mono_handle = plthook_handle_by_name("libmono");
-
     if (plthook_replace(hook, "mono_jit_init_version", &init_mono, NULL) != 0)
-        printf("Failed to hook jit_init_version, ignoring it. Error: %s\n",
-               plthook_error());
-    else if (mono_handle)
-        load_mono_funcs(mono_handle);
+        log_err("Failed to hook jit_init_version, ignoring it. Error: %s\n",
+                plthook_error());
+    else {
+        void *mono_handle = plthook_handle_by_filename("libmono");
+        if (mono_handle) {
+            load_mono_funcs(mono_handle);
+        }
+    }
 #endif
 
     plthook_close(hook);

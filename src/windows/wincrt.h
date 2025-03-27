@@ -59,10 +59,6 @@ extern char_t *getenv_wide(const char_t *name);
 
 extern void shutenv(char_t *val);
 
-// extern void *fopen(char_t *filename, const char_t *mode);
-// extern size_t fread(void *ptr, size_t size, size_t count, void *stream);
-// extern int fclose(void *stream);
-
 #ifndef UNICODE
 #define CommandLineToArgv CommandLineToArgvA
 extern LPSTR *CommandLineToArgvA(LPCSTR cmd_line, int *argc);

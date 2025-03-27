@@ -18,6 +18,10 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
+    if (target.result.os.tag != .windows) {
+        lib_mod.addImport("plthook", plthook_dep.module("plthook"));
+    }
+
     var c_source_files = std.ArrayListUnmanaged([]const u8){};
     try c_source_files.appendSlice(b.allocator, &.{
         "bootstrap.c",
@@ -26,24 +30,15 @@ pub fn build(b: *std.Build) !void {
     });
 
     switch (target.result.os.tag) {
-        .linux, .macos => |os| {
-            try c_source_files.appendSlice(b.allocator, &.{"nix/util.c"});
-            if (os == .macos) {
-                try c_source_files.appendSlice(b.allocator, &.{
-                    "nix/plthook/plthook_ext_osx.c",
-                });
-            } else {
-                try c_source_files.appendSlice(b.allocator, &.{
-                    "nix/plthook/plthook_ext_elf.c",
-                });
-            }
-            try c_source_files.appendSlice(b.allocator, &.{"nix/entrypoint.c"});
+        .linux, .macos => {
+            try c_source_files.appendSlice(b.allocator, &.{ "nix/util.c", "nix/entrypoint.c" });
         },
         .windows => {
             try c_source_files.appendSlice(b.allocator, &.{
                 "windows/entrypoint.c",
                 "windows/util.c",
                 "windows/wincrt.c",
+                "util/logging/windows.c",
             });
 
             try lib_mod.c_macros.append(b.allocator, "-DUNICODE");
@@ -61,8 +56,6 @@ pub fn build(b: *std.Build) !void {
     });
 
     lib_mod.addIncludePath(b.path("src"));
-
-    lib_mod.linkLibrary(plthook_dep.artifact("plthook"));
 
     const lib = b.addLibrary(.{
         .linkage = .dynamic,

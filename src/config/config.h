@@ -83,10 +83,10 @@ extern Config config;
 /**
  * @brief Load configuration.
  */
-extern void load_config();
+void load_config();
 
 /**
  * @brief Clean up configuration.
  */
-extern void cleanup_config();
+void cleanup_config();
 #endif

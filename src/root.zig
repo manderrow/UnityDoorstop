@@ -17,4 +17,7 @@ comptime {
     if (builtin.os.tag == .windows) {
         _ = @import("windows/proxy/proxy.zig");
     }
+    if (builtin.os.tag != .windows) {
+        _ = @import("nix/plthook/plthook_ext.zig");
+    }
 }

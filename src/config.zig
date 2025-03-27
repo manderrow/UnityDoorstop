@@ -58,11 +58,15 @@ fn toCStr(name: []const u8, str: []u8) [:0]const char {
             };
         },
         else => {
-            var buf = std.ArrayListUnmanaged(u8){ .items = str };
-            defer buf.deinit(alloc);
-            return buf.toOwnedSliceSentinel(alloc, 0) catch |e| switch (e) {
+            if (std.mem.indexOfScalar(u8, str, 0) != null) {
+                std.debug.panic("Environment variable {s} contains an internal NUL byte", .{name});
+            }
+            const len = str.len;
+            const buf = alloc.realloc(str, len + 1) catch |e| switch (e) {
                 error.OutOfMemory => @panic("Out of memory"),
             };
+            buf[len] = 0;
+            return @ptrCast(buf[0..len]);
         },
     }
 }
