@@ -80,12 +80,6 @@ char_t *getenv_wide(const char_t *name) {
     return buf;
 }
 
-void shutenv(char_t *buf) {
-    if (buf) {
-        free(buf);
-    }
-}
-
 // void *fopen(char_t *filename, const char_t *mode) {
 //     return CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 //                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);

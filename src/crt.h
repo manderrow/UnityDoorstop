@@ -36,8 +36,6 @@
 
 #define MAX_PATH PATH_MAX
 
-#define shutenv(val)
-
 #endif
 
 #endif

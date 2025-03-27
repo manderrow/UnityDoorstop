@@ -57,8 +57,6 @@ extern int setenv(const char_t *name, const char_t *value, int overwrite);
 extern char_t *getenv_wide(const char_t *name);
 #define getenv getenv_wide
 
-extern void shutenv(char_t *val);
-
 #ifndef UNICODE
 #define CommandLineToArgv CommandLineToArgvA
 extern LPSTR *CommandLineToArgvA(LPCSTR cmd_line, int *argc);
