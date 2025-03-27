@@ -1,7 +1,7 @@
 .{
     .name = .UnityDoorstop,
 
-    .version = "4.3.0+manderrow.3",
+    .version = "4.3.0+manderrow.4",
 
     .fingerprint = 0x6002b2b610072fc5,
 
