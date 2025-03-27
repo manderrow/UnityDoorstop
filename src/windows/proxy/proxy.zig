@@ -1,15 +1,13 @@
 const std = @import("std");
 
-fn iter_proxy_funcs() std.mem.SplitIterator(u8, .scalar) {
-    return std.mem.splitScalar(u8, @embedFile("proxylist.txt"), '\n');
-}
+const iter_proxy_funcs = std.mem.splitScalar(u8, @embedFile("proxylist.txt"), '\n');
 
 var proxy_func_addrs = blk: {
     @setEvalBranchQuota(8000);
 
     var fields: []const std.builtin.Type.StructField = &.{};
 
-    var funcs = iter_proxy_funcs();
+    var funcs = iter_proxy_funcs;
     while (funcs.next()) |name| {
         if (std.mem.indexOfScalar(u8, name, ' ') != null) {
             @compileError("proxy function name \"" ++ name ++ "\" contains whitespace");
@@ -33,7 +31,7 @@ var proxy_func_addrs = blk: {
 
 comptime {
     @setEvalBranchQuota(8000);
-    var funcs = iter_proxy_funcs();
+    var funcs = iter_proxy_funcs;
     while (funcs.next()) |name| {
         @export(&struct {
             fn f() callconv(.c) void {
