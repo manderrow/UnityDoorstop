@@ -147,7 +147,7 @@ void *init_mono(const char *root_domain_name, const char *runtime_version) {
     size_t mono_search_path_len = strlen(root_dir) + 1;
 
     char_t *override_dir_full = NULL;
-    char_t *config_path_value = config.mono_dll_search_path_override;
+    const char_t *config_path_value = config.mono_dll_search_path_override;
     bool_t has_override = config_path_value && strlen(config_path_value);
     if (has_override) {
         size_t path_start = 0;

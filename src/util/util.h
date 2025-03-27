@@ -113,7 +113,7 @@ char_t *get_file_name(char_t *path, bool_t with_ext);
  * @param file File path to check.
  * @return bool_t TRUE if file exists, otherwise FALSE.
  */
-bool_t file_exists(char_t *file);
+bool_t file_exists(const char_t *file);
 
 /**
  * @brief Check if a folder exists.
@@ -121,7 +121,7 @@ bool_t file_exists(char_t *file);
  * @param folder Folder path to check.
  * @return bool_t TRUE if folder exsits, otherwise FALSE.
  */
-bool_t folder_exists(char_t *folder);
+bool_t folder_exists(const char_t *folder);
 
 /**
  * @brief Get the current working directory.

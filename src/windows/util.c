@@ -56,13 +56,13 @@ char_t *get_full_path(char_t *path) {
     return res;
 }
 
-bool_t file_exists(char_t *file) {
+bool_t file_exists(const char_t *file) {
     DWORD ab = GetFileAttributes(file);
     return ab != INVALID_FILE_ATTRIBUTES &&
            (ab & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
-bool_t folder_exists(char_t *folder) {
+bool_t folder_exists(const char_t *folder) {
     DWORD ab = GetFileAttributes(folder);
     return ab != INVALID_FILE_ATTRIBUTES &&
            (ab & FILE_ATTRIBUTE_DIRECTORY) != 0;

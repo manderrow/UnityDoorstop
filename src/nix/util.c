@@ -148,9 +148,9 @@ char_t *get_file_name(char_t *path, bool_t with_ext) {
     return result;
 }
 
-bool_t file_exists(char_t *file) { return access(file, F_OK) == 0; }
+bool_t file_exists(const char_t *file) { return access(file, F_OK) == 0; }
 
-bool_t folder_exists(char_t *folder) {
+bool_t folder_exists(const char_t *folder) {
     struct stat sb;
     return stat(folder, &sb) == 0 && S_ISDIR(sb.st_mode);
 }
