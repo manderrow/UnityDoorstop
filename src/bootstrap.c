@@ -32,8 +32,8 @@ void mono_doorstop_bootstrap(void *mono_domain) {
         char *config_path_n = narrow(config_path);
         char *folder_path_n = narrow(folder_path);
 
-        LOG("Setting config paths: base dir: %s; config path: %s\n",
-            folder_path, config_path);
+        LOG("Setting config paths: base dir: %s; config path: %s", folder_path,
+            config_path);
 
         mono.domain_set_config(mono_domain, folder_path_n, config_path_n);
 
@@ -59,7 +59,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     LOG("Opening assembly: %s", config.target_assembly);
     void *file = fopen(config.target_assembly, "r");
     if (!file) {
-        LOG("Failed to open assembly: %s", config.target_assembly);
+        log_err("Failed to open assembly: %s", config.target_assembly);
         return;
     }
 
@@ -76,8 +76,8 @@ void mono_doorstop_bootstrap(void *mono_domain) {
                                                       FALSE, dll_path);
     free(data);
     if (s != MONO_IMAGE_OK) {
-        LOG("Failed to load assembly image: %s. Got result: %d\n",
-            config.target_assembly, s);
+        log_err("Failed to load assembly image: %s. Got result: %d",
+                config.target_assembly, s);
         return;
     }
 
@@ -87,8 +87,8 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     void *assembly = mono.assembly_load_from_full(image, dll_path, &s, FALSE);
     free(dll_path);
     if (s != MONO_IMAGE_OK) {
-        LOG("Failed to load assembly: %s. Got result: %d\n",
-            config.target_assembly, s);
+        log_err("Failed to load assembly: %s. Got result: %d",
+                config.target_assembly, s);
         return;
     }
 
@@ -97,14 +97,14 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     void *method = mono.method_desc_search_in_image(desc, image);
     mono.method_desc_free(desc);
     if (!method) {
-        LOG("Failed to find method Doorstop.Entrypoint:Start");
+        log_err("Failed to find method Doorstop.Entrypoint:Start");
         return;
     }
 
     void *signature = mono.method_signature(method);
     unsigned int params = mono.signature_get_param_count(signature);
     if (params != 0) {
-        LOG("Method has %d parameters; expected 0", params);
+        log_err("Method has %d parameters; expected 0", params);
         return;
     }
 
@@ -112,13 +112,12 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     void *exc = NULL;
     mono.runtime_invoke(method, NULL, NULL, &exc);
     if (exc != NULL) {
-        LOG("Error invoking code!");
+        log_err("Error invoking code!");
         if (mono.object_to_string) {
             void *str = mono.object_to_string(exc, NULL);
             char *exc_str_n = mono.string_to_utf8(str);
             char_t *exc_str = widen(exc_str_n);
-            LOG("Error message: %s", exc_str);
-            LOG("\n");
+            log_err("Error message: %s", exc_str);
             free(exc_str);
             mono.free(exc_str_n);
         }

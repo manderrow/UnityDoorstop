@@ -19,8 +19,8 @@ DoorstopPaths *paths_init(void *doorstop_module, bool_t fixed_cwd) {
     LOG("Doorstop library name: %s", doorstop_filename);
 
     if (fixed_cwd) {
-        LOG("WARN: Working directory was not the same as app directory, fixed "
-            "it automatically.\n");
+        log_warn("Working directory was not the same as app directory, fixed "
+                 "it automatically.");
     }
 
     DoorstopPaths *paths = malloc(sizeof(DoorstopPaths));

@@ -143,7 +143,7 @@ void *WINAPI get_proc_address_detour(void *module, char *name) {
             LOG("Got %s at %p", init_name, module);                            \
             extra_init;                                                        \
             init_func(module);                                                 \
-            LOG("Loaded all runtime functions\n");                             \
+            LOG("Loaded all runtime functions");                               \
         }                                                                      \
         return (void *)(target);                                               \
     }
@@ -199,7 +199,7 @@ void inject(DoorstopPaths const *paths) {
 
     if (!target_module) {
         LOG("No UnityPlayer module found! Using executable as the hook "
-            "target.\n");
+            "target.");
         target_module = app_module;
     }
 
@@ -241,9 +241,9 @@ void inject(DoorstopPaths const *paths) {
 #undef HOOK_SYS
 
     if (!ok) {
-        LOG("Failed to install IAT hook!");
+        log_err("Failed to install IAT hook!");
     } else {
-        LOG("Hooks installed, marking DOORSTOP_DISALBE = TRUE");
+        LOG("Hooks installed, marking DOORSTOP_DISABLE = TRUE");
         setenv(TEXT("DOORSTOP_DISABLE"), TEXT("TRUE"), TRUE);
     }
 }
