@@ -1,7 +1,12 @@
-#include "dlfcn_extra.h"
-#include "link_extra.h"
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
-#include "../vendor/plthook_elf.c"
+#include <dlfcn.h>
+#include <link.h>
+#include <string.h>
+
+#include "vendor/plthook.h"
 
 struct handle_by_name_helper {
     const char *find_name;

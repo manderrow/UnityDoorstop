@@ -13,6 +13,11 @@ pub fn build(b: *std.Build) !void {
         .link_libc = true,
     });
 
+    const plthook_dep = b.dependency("plthook", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     var c_source_files = std.ArrayListUnmanaged([]const u8){};
     try c_source_files.appendSlice(b.allocator, &.{
         "bootstrap.c",
@@ -25,13 +30,11 @@ pub fn build(b: *std.Build) !void {
             try c_source_files.appendSlice(b.allocator, &.{"nix/util.c"});
             if (os == .macos) {
                 try c_source_files.appendSlice(b.allocator, &.{
-                    // the _ext.c file includes the vendored .c file
-                    "nix/plthook/osx/plthook_osx_ext.c",
+                    "nix/plthook/plthook_ext_osx.c",
                 });
             } else {
                 try c_source_files.appendSlice(b.allocator, &.{
-                    // the _ext.c file includes the vendored .c file
-                    "nix/plthook/elf/plthook_elf_ext.c",
+                    "nix/plthook/plthook_ext_elf.c",
                 });
             }
             try c_source_files.appendSlice(b.allocator, &.{"nix/entrypoint.c"});
@@ -51,9 +54,15 @@ pub fn build(b: *std.Build) !void {
     lib_mod.addCSourceFiles(.{
         .root = b.path("src"),
         .files = c_source_files.items,
+        .flags = switch (target.result.os.tag) {
+            .windows => &.{ "-Xlinker", "-entry:DllEntry" },
+            else => &.{},
+        },
     });
 
     lib_mod.addIncludePath(b.path("src"));
+
+    lib_mod.linkLibrary(plthook_dep.artifact("plthook"));
 
     const lib = b.addLibrary(.{
         .linkage = .dynamic,

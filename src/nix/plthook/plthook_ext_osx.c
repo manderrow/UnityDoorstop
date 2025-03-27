@@ -1,6 +1,9 @@
-#include "mach-o_fixup-chains.h"
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+#include <string.h>
 
-#include "../vendor/plthook_osx.c"
+// TODO: get this from the plthook "package" instead of vendoring it
+#include "vendor/plthook.h"
 
 void *plthook_handle_by_name(const char *name) {
     void *mono_handle = NULL;

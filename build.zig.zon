@@ -7,7 +7,12 @@
 
     .minimum_zig_version = "0.14.0",
 
-    .dependencies = .{},
+    .dependencies = .{
+        .plthook = .{
+            .url = "git+https://github.com/mpfaff/plthook.git#e26e6cffc4bb321fbfe49c20e4b918ac1eced6f7",
+            .hash = "plthook-0.0.0-91Txxa6GAQCoExqQNSMHSpMS8ZEibxwUqhxLKKItryBb",
+        },
+    },
 
     .paths = .{
         "build.zig",

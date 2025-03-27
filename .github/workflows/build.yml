@@ -30,7 +30,7 @@ jobs:
                   version: 0.14.0
             - name: "Build for x86_64-linux"
               run: |
-                  zig build -Doptimize=ReleaseFast -Dtarget=x86_64-linux
+                  zig build -Doptimize=ReleaseFast -Dtarget=x86_64-linux-gnu
             - name: "Build for x86_64-macos"
               run: |
                   zig build -Doptimize=ReleaseFast -Dtarget=x86_64-macos
