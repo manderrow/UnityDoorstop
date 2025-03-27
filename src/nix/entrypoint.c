@@ -114,8 +114,8 @@ __attribute__((constructor)) void doorstop_ctor() {
     }
 
     if (plthook_replace(hook, "dlsym", &dlsym_hook, NULL) != 0)
-        log_err("Failed to hook dlsym, ignoring it. Error: %s\n",
-                plthook_error());
+        log_warn("Failed to hook dlsym, ignoring it. Error: %s\n",
+                 plthook_error());
 
     if (config.boot_config_override) {
         if (file_exists(config.boot_config_override)) {
@@ -129,12 +129,12 @@ __attribute__((constructor)) void doorstop_ctor() {
 
 #if !defined(__APPLE__)
             if (plthook_replace(hook, "fopen64", &fopen64_hook, NULL) != 0)
-                log_err("Failed to hook fopen64, ignoring it. Error: %s\n",
-                        plthook_error());
+                log_warn("Failed to hook fopen64, ignoring it. Error: %s\n",
+                         plthook_error());
 #endif
             if (plthook_replace(hook, "fopen", &fopen_hook, NULL) != 0)
-                log_err("Failed to hook fopen, ignoring it. Error: %s\n",
-                        plthook_error());
+                log_warn("Failed to hook fopen, ignoring it. Error: %s\n",
+                         plthook_error());
         } else {
             LOG("The boot.config file won't be overriden because the provided "
                 "one does not exist: %s",
@@ -143,12 +143,12 @@ __attribute__((constructor)) void doorstop_ctor() {
     }
 
     if (plthook_replace(hook, "fclose", &fclose_hook, NULL) != 0)
-        log_err("Failed to hook fclose, ignoring it. Error: %s\n",
-                plthook_error());
+        log_warn("Failed to hook fclose, ignoring it. Error: %s\n",
+                 plthook_error());
 
     if (plthook_replace(hook, "dup2", &dup2_hook, NULL) != 0)
-        log_err("Failed to hook dup2, ignoring it. Error: %s\n",
-                plthook_error());
+        log_warn("Failed to hook dup2, ignoring it. Error: %s\n",
+                 plthook_error());
 
 #if defined(__APPLE__)
     /*
@@ -157,8 +157,8 @@ __attribute__((constructor)) void doorstop_ctor() {
        need to apply a PLT hook.
     */
     if (plthook_replace(hook, "mono_jit_init_version", &init_mono, NULL) != 0)
-        log_err("Failed to hook jit_init_version, ignoring it. Error: %s\n",
-                plthook_error());
+        log_warn("Failed to hook jit_init_version, ignoring it. Error: %s\n",
+                 plthook_error());
     else {
         void *mono_handle = plthook_handle_by_filename("libmono");
         if (mono_handle) {

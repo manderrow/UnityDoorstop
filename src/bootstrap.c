@@ -173,9 +173,9 @@ void *init_mono(const char *root_domain_name, const char *runtime_version) {
 
                 if (strlen(override_dir_full) + strlen(full_path) + 2 >
                     MAX_PATH) {
-                    LOG("Ignoring this root path because its absolute version "
-                        "is too long: %s",
-                        full_path);
+                    log_warn("Ignoring this root path because its absolute "
+                             "version is too long: %s",
+                             full_path);
                     free(path);
                     free(full_path);
                     path_start = i + 1;
