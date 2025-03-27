@@ -40,7 +40,7 @@ pub fn log(
     comptime format: []const u8,
     args: anytype,
 ) void {
-    const level_txt = comptime message_level.asText();
+    const level_txt = comptime @tagName(message_level);
     const scope_txt = comptime @tagName(scope);
     const stderr = std.io.getStdErr().writer();
     var bw = std.io.bufferedWriter(stderr);
