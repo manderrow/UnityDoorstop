@@ -248,8 +248,8 @@ void inject(DoorstopPaths const *paths) {
     }
 }
 
-BOOL __declspec(dllexport) WINAPI
-    DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad, LPVOID reserved) {
+BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad,
+                     LPVOID reserved) {
     if (reasonForDllLoad == DLL_PROCESS_DETACH)
         SetEnvironmentVariableW(L"DOORSTOP_DISABLE", NULL);
     if (reasonForDllLoad != DLL_PROCESS_ATTACH)

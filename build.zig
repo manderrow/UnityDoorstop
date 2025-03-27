@@ -29,6 +29,12 @@ pub fn build(b: *std.Build) !void {
         "runtimes/globals.c",
     });
 
+    const lib = b.addLibrary(.{
+        .linkage = .dynamic,
+        .name = "UnityDoorstop",
+        .root_module = lib_mod,
+    });
+
     switch (target.result.os.tag) {
         .linux, .macos => {
             try c_source_files.appendSlice(b.allocator, &.{ "nix/util.c", "nix/entrypoint.c" });
@@ -42,6 +48,8 @@ pub fn build(b: *std.Build) !void {
             });
 
             try lib_mod.c_macros.append(b.allocator, "-DUNICODE");
+
+            lib.entry = .{ .symbol_name = "DllEntry" };
         },
         else => {},
     }
@@ -49,19 +57,9 @@ pub fn build(b: *std.Build) !void {
     lib_mod.addCSourceFiles(.{
         .root = b.path("src"),
         .files = c_source_files.items,
-        .flags = switch (target.result.os.tag) {
-            .windows => &.{ "-Xlinker", "-entry:DllEntry" },
-            else => &.{},
-        },
     });
 
     lib_mod.addIncludePath(b.path("src"));
-
-    const lib = b.addLibrary(.{
-        .linkage = .dynamic,
-        .name = "UnityDoorstop",
-        .root_module = lib_mod,
-    });
 
     b.installArtifact(lib);
 
