@@ -26,8 +26,14 @@ extern void *memset(void *dst, int c, size_t n);
 
 extern void *memcpy(void *dst, const void *src, size_t n);
 
-extern size_t strlen_wide(const char_t *str);
+#ifdef UNICODE
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused"
+static size_t strlen_wide(const char_t *str) { return wcslen(str) * 2; }
+static size_t strlen_narrow(const char *str) { return strlen(str); }
+#pragma clang diagnostic pop
 #define strlen strlen_wide
+#endif
 
 extern void *malloc(size_t size);
 

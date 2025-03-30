@@ -14,6 +14,7 @@
 #endif
 
 #define TSTR(t) L##t
+#define Ts "ls"
 
 void *fopen_custom(const char_t *filename, const char_t *mode);
 size_t fread_custom(void *ptr, size_t size, size_t count, void *stream);
@@ -31,6 +32,9 @@ int fclose_custom(void *stream);
 #include <unistd.h>
 
 #define TSTR(t) t
+#define Ts "s"
+
+#define strlen_narrow strlen
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused"

@@ -31,13 +31,6 @@ int setenv(const char_t *name, const char_t *value, int overwrite) {
     return !SetEnvironmentVariable(name, value);
 }
 
-size_t strlen_wide(char_t const *str) {
-    size_t result = 0;
-    while (*str++)
-        result++;
-    return result;
-}
-
 void *malloc(size_t size) {
     return HeapAlloc(h_heap, HEAP_GENERATE_EXCEPTIONS, size);
 }

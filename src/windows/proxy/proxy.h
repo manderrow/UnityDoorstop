@@ -21,7 +21,7 @@ static inline void load_proxy(char_t *module_name) {
     char_t *alt_full_path = get_full_path(alt_name);
     free(alt_name);
 
-    LOG("Looking for original DLL from %ls", alt_full_path);
+    LOG("Looking for original DLL from %" Ts, alt_full_path);
 
     void *handle = dlopen(alt_full_path, RTLD_LAZY);
     free(alt_full_path);
@@ -36,13 +36,14 @@ static inline void load_proxy(char_t *module_name) {
         strcpy(strcpy(sys_full_path + sys_len, module_name) + module_name_len,
                DLL_POSTFIX);
 
-        LOG("Looking for original DLL from %ls", sys_full_path);
+        LOG("Looking for original DLL from %" Ts, sys_full_path);
 
         handle = dlopen(sys_full_path, RTLD_LAZY);
         free(sys_full_path);
     }
 
-    ASSERT_F(handle != NULL, "Unable to load original %ls.dll!", module_name);
+    ASSERT_F(handle != NULL, "Unable to load original %" Ts ".dll!",
+             module_name);
 
     load_functions(handle);
 }

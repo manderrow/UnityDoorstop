@@ -184,7 +184,7 @@ void redirect_output_log(DoorstopPaths const *paths) {
     new_cmdline_args_narrow = narrow(new_cmdline_args);
 
     LOG("Redirected output log");
-    LOG("CMD line: %ls", new_cmdline_args);
+    LOG("CMD line: %" Ts, new_cmdline_args);
 }
 
 void inject(DoorstopPaths const *paths) {
@@ -225,7 +225,7 @@ void inject(DoorstopPaths const *paths) {
             HOOK_SYS(target_module, CreateFileA, create_file_hook_narrow);
         } else {
             log_err("The boot.config file won't be overriden because the "
-                    "provided one does not exist: %s",
+                    "provided one does not exist: %" Ts,
                     config.boot_config_override);
         }
     }

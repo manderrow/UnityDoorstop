@@ -31,8 +31,8 @@ void mono_doorstop_bootstrap(void *mono_domain) {
         char *config_path_n = narrow(config_path);
         char *folder_path_n = narrow(folder_path);
 
-        LOG("Setting config paths: base dir: %s; config path: %s", folder_path,
-            config_path);
+        LOG("Setting config paths: base dir: %" Ts "; config path: %" Ts,
+            folder_path, config_path);
 
         mono.domain_set_config(mono_domain, folder_path_n, config_path_n);
 
@@ -51,14 +51,14 @@ void mono_doorstop_bootstrap(void *mono_domain) {
 
     mono.config_parse(NULL);
 
-    LOG("Assembly dir: %s", norm_assembly_dir);
+    LOG("Assembly dir: %" Ts, norm_assembly_dir);
     setenv(TEXT("DOORSTOP_MANAGED_FOLDER_DIR"), norm_assembly_dir, TRUE);
     free(norm_assembly_dir);
 
-    LOG("Opening assembly: %s", config.target_assembly);
+    LOG("Opening assembly: %" Ts, config.target_assembly);
     void *file = fopen_custom(config.target_assembly, TSTR("r"));
     if (!file) {
-        log_err("Failed to open assembly: %s", config.target_assembly);
+        log_err("Failed to open assembly: %" Ts, config.target_assembly);
         return;
     }
 
@@ -67,7 +67,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     fread_custom(data, size, 1, file);
     fclose_custom(file);
 
-    LOG("Opened Assembly DLL (%d bytes); opening its main image", size);
+    LOG("Opened Assembly DLL (%zu bytes); opening its main image", size);
 
     char *dll_path = narrow(config.target_assembly);
     MonoImageOpenStatus s = MONO_IMAGE_OK;
@@ -75,7 +75,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
                                                       FALSE, dll_path);
     free(data);
     if (s != MONO_IMAGE_OK) {
-        log_err("Failed to load assembly image: %s. Got result: %d",
+        log_err("Failed to load assembly image: %" Ts ". Got result: %d",
                 config.target_assembly, s);
         return;
     }
@@ -86,7 +86,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     mono.assembly_load_from_full(image, dll_path, &s, FALSE);
     free(dll_path);
     if (s != MONO_IMAGE_OK) {
-        log_err("Failed to load assembly: %s. Got result: %d",
+        log_err("Failed to load assembly: %" Ts ". Got result: %d",
                 config.target_assembly, s);
         return;
     }
@@ -114,11 +114,8 @@ void mono_doorstop_bootstrap(void *mono_domain) {
         log_err("Error invoking code!");
         if (mono.object_to_string) {
             void *str = mono.object_to_string(exc, NULL);
-            char *exc_str_n = mono.string_to_utf8(str);
-            char_t *exc_str = widen(exc_str_n);
+            char *exc_str = mono.string_to_utf8(str);
             log_err("Error message: %s", exc_str);
-            free(exc_str);
-            mono.free(exc_str_n);
         }
     }
     LOG("Done");
@@ -127,19 +124,15 @@ void mono_doorstop_bootstrap(void *mono_domain) {
 }
 
 void *init_mono(const char *root_domain_name, const char *runtime_version) {
-    char_t *root_domain_name_w = widen(root_domain_name);
-    char_t *runtime_version_w = widen(runtime_version);
-    LOG("Starting mono domain \"%s\"", root_domain_name_w);
-    LOG("Runtime version: %s", runtime_version_w);
-    if (strlen(runtime_version_w) > 2 &&
-        (runtime_version_w[1] == L'2' || runtime_version_w[1] == L'1')) {
+    LOG("Starting mono domain \"%s\"", root_domain_name);
+    LOG("Runtime version: %s", runtime_version);
+    if (strlen_narrow(runtime_version) > 2 &&
+        (runtime_version[1] == '2' || runtime_version[1] == '1')) {
         mono_is_net35 = TRUE;
     }
-    free(root_domain_name_w);
-    free(runtime_version_w);
     char *root_dir_n = mono.assembly_getrootdir();
     char_t *root_dir = widen(root_dir_n);
-    LOG("Current root: %s", root_dir);
+    LOG("Current root: %s", root_dir_n);
 
     LOG("Overriding mono DLL search path");
 
@@ -172,7 +165,7 @@ void *init_mono(const char *root_domain_name, const char *runtime_version) {
                 if (strlen(override_dir_full) + strlen(full_path) + 2 >
                     MAX_PATH) {
                     log_warn("Ignoring this root path because its absolute "
-                             "version is too long: %s",
+                             "version is too long: %" Ts,
                              full_path);
                     free(path);
                     free(full_path);
@@ -185,7 +178,7 @@ void *init_mono(const char *root_domain_name, const char *runtime_version) {
                 }
 
                 strcat(override_dir_full, full_path);
-                LOG("Adding root path: %s", full_path);
+                LOG("Adding root path: %" Ts, full_path);
 
                 free(path);
                 free(full_path);
@@ -205,7 +198,7 @@ void *init_mono(const char *root_domain_name, const char *runtime_version) {
     }
     strcat(mono_search_path, root_dir);
 
-    LOG("Mono search path: %s", mono_search_path);
+    LOG("Mono search path: %" Ts, mono_search_path);
     char *mono_search_path_n = narrow(mono_search_path);
     mono.set_assemblies_path(mono_search_path_n);
     setenv(TEXT("DOORSTOP_DLL_SEARCH_DIRS"), mono_search_path, TRUE);
@@ -240,8 +233,8 @@ void il2cpp_doorstop_bootstrap() {
         return;
     }
 
-    LOG("CoreCLR runtime path: %s", config.clr_runtime_coreclr_path);
-    LOG("CoreCLR corlib dir: %s", config.clr_corlib_dir);
+    LOG("CoreCLR runtime path: %" Ts, config.clr_runtime_coreclr_path);
+    LOG("CoreCLR corlib dir: %" Ts, config.clr_corlib_dir);
 
     if (!file_exists(config.clr_runtime_coreclr_path) ||
         !folder_exists(config.clr_corlib_dir)) {
@@ -273,10 +266,10 @@ void il2cpp_doorstop_bootstrap() {
     strcat(app_paths_env, target_dir);
     const char *app_paths_env_n = narrow(app_paths_env);
 
-    LOG("App path: %s", app_path);
-    LOG("Target dir: %s", target_dir);
-    LOG("Target name: %s", target_name);
-    LOG("APP_PATHS: %s", app_paths_env);
+    LOG("App path: %" Ts, app_path);
+    LOG("Target dir: %" Ts, target_dir);
+    LOG("Target name: %" Ts, target_name);
+    LOG("APP_PATHS: %" Ts, app_paths_env);
 
     const char *props = "APP_PATHS";
 
@@ -310,7 +303,7 @@ void il2cpp_doorstop_bootstrap() {
 
 int init_il2cpp(const char *domain_name) {
     char_t *domain_name_w = widen(domain_name);
-    LOG("Starting IL2CPP domain \"%s\"", domain_name_w);
+    LOG("Starting IL2CPP domain \"%" Ts "\"", domain_name_w);
     free(domain_name_w);
     const int orig_result = il2cpp.init(domain_name);
     il2cpp_doorstop_bootstrap();
@@ -362,7 +355,7 @@ void hook_mono_jit_parse_options(int argc, char **argv) {
             }
         }
 
-        LOG("Debug options: %s", debug_options);
+        LOG("Debug options: %" Ts, debug_options);
 
         char *debug_options_n = narrow(debug_options);
         new_argv[argc] = debug_options_n;
