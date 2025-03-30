@@ -56,7 +56,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     free(norm_assembly_dir);
 
     LOG("Opening assembly: %s", config.target_assembly);
-    void *file = fopen(config.target_assembly, "r");
+    void *file = fopen_custom(config.target_assembly, TSTR("r"));
     if (!file) {
         log_err("Failed to open assembly: %s", config.target_assembly);
         return;
@@ -64,8 +64,8 @@ void mono_doorstop_bootstrap(void *mono_domain) {
 
     size_t size = get_file_size(file);
     void *data = malloc(size);
-    fread(data, size, 1, file);
-    fclose(file);
+    fread_custom(data, size, 1, file);
+    fclose_custom(file);
 
     LOG("Opened Assembly DLL (%d bytes); opening its main image", size);
 
@@ -83,7 +83,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     LOG("Image opened; loading included assembly");
 
     s = MONO_IMAGE_OK;
-    void *assembly = mono.assembly_load_from_full(image, dll_path, &s, FALSE);
+    mono.assembly_load_from_full(image, dll_path, &s, FALSE);
     free(dll_path);
     if (s != MONO_IMAGE_OK) {
         log_err("Failed to load assembly: %s. Got result: %d",
@@ -262,7 +262,6 @@ void il2cpp_doorstop_bootstrap() {
     char *app_path_n = narrow(app_path);
 
     char_t *target_dir = get_folder_name(config.target_assembly);
-    char *target_dir_n = narrow(target_dir);
     char_t *target_name = get_file_name(config.target_assembly, FALSE);
     char *target_name_n = narrow(target_name);
 
@@ -338,7 +337,7 @@ void hook_mono_jit_parse_options(int argc, char **argv) {
 
         const char_t *mono_debug_address = config.mono_debug_address;
         if (!mono_debug_address) {
-            mono_debug_address = "127.0.0.1:10000";
+            mono_debug_address = TSTR("127.0.0.1:10000");
         }
         size_t debug_args_len =
             STR_LEN(MONO_DEBUG_ARG_START) + strlen(mono_debug_address);
@@ -398,11 +397,11 @@ void *hook_mono_image_open_from_data_with_name(void *data,
         strcat(new_full_path, name_file);
 
         if (file_exists(new_full_path)) {
-            void *file = fopen(new_full_path, "r");
+            void *file = fopen_custom(new_full_path, TSTR("r"));
             size_t size = get_file_size(file);
             void *buf = malloc(size);
-            fread(buf, 1, size, file);
-            fclose(file);
+            fread_custom(buf, 1, size, file);
+            fclose_custom(file);
             result = mono.image_open_from_data_with_name(buf, size, need_copy,
                                                          status, refonly, name);
             if (need_copy)

@@ -109,7 +109,7 @@ char *normalize_path(char *pwd, const char *src, char *res) {
     return res;
 }
 
-char_t *get_full_path(char_t *path) {
+char_t *get_full_path(const char_t *path) {
     char_t *full_path = (char_t *)calloc(MAX_PATH + 1, sizeof(char_t));
     char_t *cwd_str = getcwd(NULL, MAX_PATH);
     normalize_path(cwd_str, path, full_path);
@@ -121,7 +121,7 @@ char_t *get_full_path(char_t *path) {
     return full_path;
 }
 
-char_t *get_folder_name(char_t *path) {
+char_t *get_folder_name(const char_t *path) {
     char_t *path_copy = (char_t *)calloc(MAX_PATH + 1, sizeof(char_t));
     strcpy(path_copy, path);
     char_t *folder = dirname(path_copy);
@@ -131,7 +131,7 @@ char_t *get_folder_name(char_t *path) {
     return result;
 }
 
-char_t *get_file_name(char_t *path, bool_t with_ext) {
+char_t *get_file_name(const char_t *path, bool_t with_ext) {
     char_t *path_copy = (char_t *)calloc(MAX_PATH + 1, sizeof(char_t));
     strcpy(path_copy, path);
     char_t *file = basename(path_copy);

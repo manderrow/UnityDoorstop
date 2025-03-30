@@ -32,11 +32,14 @@ typedef struct {
 
 extern S(IMPORT_PREFIX) IMPORT_PREFIX;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused"
 static void LOADER_FUNC_NAME(void *lib) {
 #define DEF_CALL(retType, name, ...)                                           \
     IMPORT_PREFIX.name = (name##_t)dlsym(lib, STR(CAT(IMPORT_PREFIX, _, name)));
 #include IMPORT_LIB
 #undef DEF_CALL
 }
+#pragma clang diagnostic pop
 
 #undef DEFINE_CALLS

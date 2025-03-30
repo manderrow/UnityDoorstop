@@ -13,6 +13,12 @@
 #define ENV32
 #endif
 
+#define TSTR(t) L##t
+
+void *fopen_custom(const char_t *filename, const char_t *mode);
+size_t fread_custom(void *ptr, size_t size, size_t count, void *stream);
+int fclose_custom(void *stream);
+
 #elif defined(__APPLE__) || defined(__linux__)
 #define _GNU_SOURCE
 #include <dlfcn.h>
@@ -23,6 +29,21 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#define TSTR(t) t
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused"
+static void *fopen_custom(const char *filename, const char *mode) {
+    return fopen(filename, mode);
+}
+
+static size_t fread_custom(void *ptr, size_t size, size_t count, void *stream) {
+    return fread(ptr, size, count, stream);
+}
+
+static int fclose_custom(void *stream) { return fclose(stream); }
+#pragma clang diagnostic pop
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>

@@ -49,7 +49,7 @@ size_t get_module_path(void *module, char_t **result, size_t *size,
     return len;
 }
 
-char_t *get_full_path(char_t *path) {
+char_t *get_full_path(const char_t *path) {
     const DWORD needed = GetFullPathName(path, 0, NULL, NULL);
     char_t *res = malloc(sizeof(char_t) * needed);
     GetFullPathName(path, needed, res, NULL);
@@ -80,7 +80,7 @@ typedef struct {
     size_t len;
 } PathParts;
 
-PathParts split_path(char_t *path) {
+static PathParts split_path(const char_t *path) {
     size_t len = strlen(path);
     size_t ext = len;
     size_t i;
@@ -94,7 +94,7 @@ PathParts split_path(char_t *path) {
     return (PathParts){.ext = ext, .parent = i, .len = len};
 }
 
-char_t *get_folder_name(char_t *path) {
+char_t *get_folder_name(const char_t *path) {
     PathParts parts = split_path(path);
     char_t *result = malloc((parts.parent + 1) * sizeof(char_t));
     strncpy(result, path, parts.parent);
@@ -102,7 +102,7 @@ char_t *get_folder_name(char_t *path) {
     return result;
 }
 
-char_t *get_file_name(char_t *path, bool_t with_ext) {
+char_t *get_file_name(const char_t *path, bool_t with_ext) {
     PathParts parts = split_path(path);
     size_t result_len = (with_ext ? parts.len : parts.ext) - parts.parent;
     char_t *result = malloc(result_len * sizeof(char_t));

@@ -81,7 +81,7 @@ size_t get_module_path(void *module, char_t **result, size_t *size,
  * @param path Path to resolve relative path for.
  * @return char_t* Absolute path to the given path.
  */
-char_t *get_full_path(char_t *path);
+char_t *get_full_path(const char_t *path);
 
 /**
  * @brief Get the directory name of the given path.
@@ -94,7 +94,7 @@ char_t *get_full_path(char_t *path);
  * @param path Full path to get directory name of.
  * @return char_t* Directory part of the path (part before last path separator).
  */
-char_t *get_folder_name(char_t *path);
+char_t *get_folder_name(const char_t *path);
 
 /**
  * @brief Get the file name from the full path
@@ -105,7 +105,7 @@ char_t *get_folder_name(char_t *path);
  * @param with_ext Whether to include file extension or not.
  * @return char_t* File name part of the path.
  */
-char_t *get_file_name(char_t *path, bool_t with_ext);
+char_t *get_file_name(const char_t *path, bool_t with_ext);
 
 /**
  * @brief Check if a file exists.

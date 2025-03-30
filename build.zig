@@ -23,10 +23,7 @@ pub fn build(b: *std.Build) !void {
     }
 
     var c_source_files = std.ArrayListUnmanaged([]const u8){};
-    try c_source_files.appendSlice(b.allocator, &.{
-        "bootstrap.c",
-        "runtimes/globals.c",
-    });
+    try c_source_files.append(b.allocator, "bootstrap.c");
 
     const lib = b.addLibrary(.{
         .linkage = .dynamic,
@@ -57,6 +54,7 @@ pub fn build(b: *std.Build) !void {
     lib_mod.addCSourceFiles(.{
         .root = b.path("src"),
         .files = c_source_files.items,
+        .flags = &.{ "-Wall", "-Werror" },
     });
 
     lib_mod.addIncludePath(b.path("src"));

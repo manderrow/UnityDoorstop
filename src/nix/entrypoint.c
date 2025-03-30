@@ -50,7 +50,7 @@ int fclose_hook(FILE *stream) {
     // to console
     if (stream == stdout)
         return F_OK;
-    return fclose(stream);
+    return fclose_custom(stream);
 }
 
 char_t *default_boot_config_path = NULL;
@@ -69,8 +69,8 @@ FILE *fopen64_hook(const char *filename, const char *mode) {
 }
 #endif
 
-FILE *fopen_hook(char *filename, char *mode) {
-    char *actual_file_name = filename;
+FILE *fopen_hook(const char *filename, const char *mode) {
+    const char *actual_file_name = filename;
 
     if (strcmp(filename, default_boot_config_path) == 0) {
         actual_file_name = config.boot_config_override;

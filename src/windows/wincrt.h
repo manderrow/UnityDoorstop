@@ -7,7 +7,6 @@
 #define WIN_CRT_H
 
 #include "../util/util.h"
-#include <stdio.h>
 #include <windows.h>
 
 // Fix for MinGW's headers
@@ -24,10 +23,8 @@ extern void init_crt();
 #define STR_LEN(str) (sizeof(str) / sizeof((str)[0]))
 
 extern void *memset(void *dst, int c, size_t n);
-#pragma intrinsic(memset)
 
 extern void *memcpy(void *dst, const void *src, size_t n);
-#pragma intrinsic(memcpy)
 
 extern size_t strlen_wide(const char_t *str);
 #define strlen strlen_wide
