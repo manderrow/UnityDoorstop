@@ -5,7 +5,6 @@
 #include "runtimes/il2cpp.h"
 #include "runtimes/mono.h"
 #include "util/logging.h"
-#include "util/paths.h"
 #include "util/util.h"
 
 bool_t mono_debug_init_called = FALSE;

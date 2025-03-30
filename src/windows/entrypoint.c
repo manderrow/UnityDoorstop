@@ -2,8 +2,8 @@
 #include "../config/config.h"
 #include "../crt.h"
 #include "../util/logging.h"
-#include "../util/paths.h"
 #include "hook.h"
+#include "paths.h"
 #include "proxy/proxy.h"
 
 /**

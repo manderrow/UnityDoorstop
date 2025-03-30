@@ -8,6 +8,7 @@
 #ifndef HOOK_H
 #define HOOK_H
 
+#include "../util/logging.h"
 #include "../util/util.h"
 #include <windows.h>
 
@@ -46,6 +47,8 @@ static bool_t iat_hook(void *dll, char const *target_dll, void *target_function,
     for (int i = 0; imports[i].Characteristics; i++) {
         char *name = RVA2PTR(char *, mz, imports[i].Name);
 
+        log_debug("import %s:", name);
+
         if (lstrcmpiA(name, target_dll) != 0)
             continue;
 
@@ -56,6 +59,8 @@ static bool_t iat_hook(void *dll, char const *target_dll, void *target_function,
 
             if (import != target_function)
                 continue;
+
+            log_debug("  %p", import);
 
             DWORD old_state;
             if (!VirtualProtect(thunk, sizeof(void *), PAGE_READWRITE,

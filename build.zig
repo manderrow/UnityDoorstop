@@ -25,7 +25,6 @@ pub fn build(b: *std.Build) !void {
     var c_source_files = std.ArrayListUnmanaged([]const u8){};
     try c_source_files.appendSlice(b.allocator, &.{
         "bootstrap.c",
-        "util/paths.c",
         "runtimes/globals.c",
     });
 
@@ -42,6 +41,7 @@ pub fn build(b: *std.Build) !void {
         .windows => {
             try c_source_files.appendSlice(b.allocator, &.{
                 "windows/entrypoint.c",
+                "windows/paths.c",
                 "windows/util.c",
                 "windows/wincrt.c",
                 "util/logging/windows.c",

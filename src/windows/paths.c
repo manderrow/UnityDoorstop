@@ -1,6 +1,6 @@
 #include "paths.h"
 #include "../crt.h"
-#include "logging.h"
+#include "../util/logging.h"
 
 DoorstopPaths *paths_init(void *doorstop_module, bool_t fixed_cwd) {
     char_t *app_path = program_path();

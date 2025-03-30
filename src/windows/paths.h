@@ -1,7 +1,7 @@
 #ifndef PATHS_H
 #define PATHS_H
 
-#include "util.h"
+#include "../util/util.h"
 
 typedef struct {
     char_t *app_path;

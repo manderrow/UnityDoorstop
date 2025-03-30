@@ -2,7 +2,6 @@
 #include "../config/config.h"
 #include "../crt.h"
 #include "../util/logging.h"
-#include "../util/paths.h"
 #include "../util/util.h"
 #include "./plthook/plthook_ext.h"
 #include "./plthook/vendor/plthook.h"
