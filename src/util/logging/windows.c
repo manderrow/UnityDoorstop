@@ -3,11 +3,12 @@
 
 #define LOG_FN(f)                                                              \
     void log_##f(const char *message, ...) {                                   \
+        fprintf(stderr, #f " doorstop ");                                      \
         va_list args;                                                          \
         va_start(args, message);                                               \
-        fprintf(stderr, #f " doorstop ");                                      \
         vfprintf(stderr, message, args);                                       \
         va_end(args);                                                          \
+        fprintf(stderr, "\n");                                                 \
     }
 
 LOG_FN(err);
