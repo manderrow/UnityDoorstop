@@ -64,8 +64,8 @@ pub fn log(
 comptime {
     _ = switch (builtin.os.tag) {
         // Zig currently does not support defining variadic callconv(.c) functions, so
-        // we use a fallback implementation that formats in C instead.
-        .windows => @import("logging/windows.zig"),
+        // we use a fallback implementation in C instead.
+        .windows => {},
         else => @import("logging/default.zig"),
     };
 }
