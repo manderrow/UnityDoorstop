@@ -60,7 +60,7 @@ static bool_t iat_hook(void *dll, char const *target_dll, void *target_function,
             if (import != target_function)
                 continue;
 
-            log_debug("  %p", import);
+            log_debug("  matched 0x%p", import);
 
             DWORD old_state;
             if (!VirtualProtect(thunk, sizeof(void *), PAGE_READWRITE,
@@ -74,6 +74,8 @@ static bool_t iat_hook(void *dll, char const *target_dll, void *target_function,
             return TRUE;
         }
     }
+
+    log_debug("did not match 0x%p", target_function);
 
     return FALSE;
 }

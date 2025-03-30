@@ -137,6 +137,7 @@ void capture_mono_path(void *handle) {
 bool_t initialized = FALSE;
 void *WINAPI get_proc_address_detour(void *module, char *name) {
 #define REDIRECT_INIT(init_name, init_func, target, extra_init)                \
+    LOG("get_proc_address_detour(%p, \"%s\")", module, name);                  \
     if (lstrcmpA(name, init_name) == 0) {                                      \
         if (!initialized) {                                                    \
             initialized = TRUE;                                                \
@@ -223,9 +224,9 @@ void inject(DoorstopPaths const *paths) {
             HOOK_SYS(target_module, CreateFileW, create_file_hook);
             HOOK_SYS(target_module, CreateFileA, create_file_hook_narrow);
         } else {
-            LOG("The boot.config file won't be overriden because the provided "
-                "one does not exist: %s",
-                config.boot_config_override);
+            log_err("The boot.config file won't be overriden because the "
+                    "provided one does not exist: %s",
+                    config.boot_config_override);
         }
     }
 
