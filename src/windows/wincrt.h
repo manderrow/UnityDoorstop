@@ -49,12 +49,9 @@ extern char_t *getenv_wide(const char_t *name);
 #define getenv getenv_wide
 
 #ifndef UNICODE
-#define CommandLineToArgv CommandLineToArgvA
-extern LPSTR *CommandLineToArgvA(LPCSTR cmd_line, int *argc);
 
 #define strcmpi lstrcmpiA
 #else
-#define CommandLineToArgv CommandLineToArgvW
 #define strcmpi lstrcmpiW
 #endif
 

@@ -75,7 +75,7 @@ export fn folder_exists(file: [*:0]const os_char) bool {
 }
 
 /// The result will have a null-terminator at index `len`.
-fn get_module_path(
+pub fn get_module_path(
     module: if (builtin.os.tag == .windows) ?std.os.windows.HMODULE else ?*const anyopaque,
     free_space: usize,
 ) ?struct {
@@ -178,13 +178,13 @@ export fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
     }
 }
 
-export fn get_working_dir() [*:0]os_char {
+pub export fn get_working_dir() [*:0]os_char {
     var buf: [std.fs.max_path_bytes]u8 = undefined;
     const slice = std.fs.cwd().realpath(".", &buf) catch |e| std.debug.panic("Could not determine current working directory path: {}", .{e});
     return toOsString(slice);
 }
 
-export fn program_path() [*:0]os_char {
+pub export fn program_path() [*:0]os_char {
     if (builtin.os.tag == .windows) {
         const r = get_module_path(null, 0).?;
         return @ptrCast(r.result.ptr);
@@ -220,12 +220,12 @@ fn split_path(path: [*:0]const os_char) struct {
     }
 }
 
-export fn get_folder_name(path: [*:0]const os_char) [*:0]os_char {
+pub export fn get_folder_name(path: [*:0]const os_char) [*:0]os_char {
     const parts = split_path(path);
     return (alloc.dupeZ(os_char, path[0 .. @max(parts.parent, 1) - 1]) catch @panic("Out of memory")).ptr;
 }
 
-export fn get_file_name(path: [*:0]const os_char, with_ext: c_bool) [*:0]os_char {
+pub export fn get_file_name(path: [*:0]const os_char, with_ext: c_bool) [*:0]os_char {
     const parts = split_path(path);
     const end = if (with_ext != .false) parts.len else parts.ext;
     return (alloc.dupeZ(os_char, path[parts.parent..end]) catch @panic("Out of memory")).ptr;

@@ -17,6 +17,7 @@ comptime {
     _ = @import("runtimes.zig");
     _ = @import("util.zig");
     if (builtin.os.tag == .windows) {
+        _ = @import("windows/paths.zig");
         _ = @import("windows/proxy.zig");
     }
     if (builtin.os.tag != .windows) {

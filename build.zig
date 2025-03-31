@@ -38,7 +38,6 @@ pub fn build(b: *std.Build) !void {
         .windows => {
             try c_source_files.appendSlice(b.allocator, &.{
                 "windows/entrypoint.c",
-                "windows/paths.c",
                 "windows/wincrt.c",
                 "util/logging/windows.c",
             });

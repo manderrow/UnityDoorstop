@@ -1,6 +1,8 @@
 #ifndef PATHS_H
 #define PATHS_H
 
+#include <windows.h>
+
 #include "../util/util.h"
 
 typedef struct {
@@ -11,7 +13,7 @@ typedef struct {
     char_t *doorstop_filename;
 } DoorstopPaths;
 
-DoorstopPaths *paths_init(void *doorstop_module, bool_t fixed_cwd);
+DoorstopPaths *paths_init(HMODULE doorstop_module, bool_t fixed_cwd);
 void paths_free(DoorstopPaths *const paths);
 
 #endif
