@@ -75,7 +75,7 @@ export fn mono_image_open_from_file_with_name(
     };
     defer alloc.free(buf);
 
-    // need must be forced to true so that Mono copies the data out of our temporary buffer.
+    // need_copy must be forced to true so that Mono copies the data out of our temporary buffer.
     return addrs.image_open_from_data_with_name.?(
         buf.ptr,
         @intCast(buf.len),
