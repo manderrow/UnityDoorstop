@@ -84,7 +84,7 @@ inline fn getEnvStrRef(comptime key: []const u8) ?[:0]const os_char {
     }
 }
 
-fn getEnvStr(comptime key: []const u8) ?[:0]const os_char {
+fn getEnvStr(comptime key: []const u8) ?[*:0]const os_char {
     switch (builtin.os.tag) {
         .windows => {
             return alloc.dupeZ(u16, getEnvStrRef(key) orelse return null) catch @panic("Out of memory");
@@ -133,23 +133,23 @@ export fn load_config() void {
     config.ignore_disabled_env = getEnvBool("DOORSTOP_IGNORE_DISABLED_ENV");
     config.mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED");
     config.mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND");
-    config.mono_debug_address = @ptrCast(getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS"));
-    config.target_assembly = @ptrCast(getEnvPath("DOORSTOP_TARGET_ASSEMBLY"));
+    config.mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS");
+    config.mono_dll_search_path_override = getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE");
+    config.target_assembly = getEnvPath("DOORSTOP_TARGET_ASSEMBLY");
     if (config.target_assembly == null) {
         @panic("DOORSTOP_TARGET_ASSEMBLY environment variable must be set");
     }
-    config.boot_config_override = @ptrCast(getEnvPath("DOORSTOP_BOOT_CONFIG_OVERRIDE"));
-    config.mono_dll_search_path_override = @ptrCast(getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE"));
-    config.clr_runtime_coreclr_path = @ptrCast(getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH"));
-    config.clr_corlib_dir = @ptrCast(getEnvPath("DOORSTOP_CLR_CORLIB_DIR"));
+    config.boot_config_override = getEnvPath("DOORSTOP_BOOT_CONFIG_OVERRIDE");
+    config.clr_runtime_coreclr_path = getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH");
+    config.clr_corlib_dir = getEnvPath("DOORSTOP_CLR_CORLIB_DIR");
 }
 
 // not used right now. Export if we want to use it in the future.
 fn cleanup_config() void {
-    freeNonNull(config.target_assembly);
-    freeNonNull(config.boot_config_override);
-    freeNonNull(config.mono_dll_search_path_override);
-    freeNonNull(config.clr_corlib_dir);
-    freeNonNull(config.clr_runtime_coreclr_path);
     freeNonNull(config.mono_debug_address);
+    freeNonNull(config.mono_dll_search_path_override);
+    alloc.free(std.mem.span(config.target_assembly.?));
+    freeNonNull(config.boot_config_override);
+    freeNonNull(config.clr_runtime_coreclr_path);
+    freeNonNull(config.clr_corlib_dir);
 }
