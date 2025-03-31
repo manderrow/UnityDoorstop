@@ -29,7 +29,10 @@ pub fn build(b: *std.Build) !void {
     }
 
     var c_source_files = std.ArrayListUnmanaged([]const u8){};
-    try c_source_files.append(b.allocator, "bootstrap.c");
+    try c_source_files.appendSlice(b.allocator, &.{
+        "bootstrap.c",
+        "util/logging.c",
+    });
 
     const lib = b.addLibrary(.{
         .linkage = .dynamic,
@@ -45,7 +48,6 @@ pub fn build(b: *std.Build) !void {
             try c_source_files.appendSlice(b.allocator, &.{
                 "windows/entrypoint.c",
                 "windows/wincrt.c",
-                "util/logging/windows.c",
             });
 
             try lib_mod.c_macros.append(b.allocator, "-DUNICODE");

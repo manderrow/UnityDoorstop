@@ -5,34 +5,13 @@ const alloc = @import("../root.zig").alloc;
 
 pub const logger = std.log.scoped(.doorstop);
 
-export fn load_logger_config() enum(u8) {
-    ok = 1,
-    err = 0,
-} {
-    const log_mode_str = std.process.getEnvVarOwned(
-        alloc,
-        "DOORSTOP_LOG_MODE",
-    ) catch |e| switch (e) {
-        error.EnvironmentVariableNotFound => return .ok,
-        else => {
-            logger.err("Error loading logger config: {}", .{e});
-            return .err;
-        },
-    };
-    log_mode = std.StaticStringMap(LogMode).initComptime(.{
-        .{ "text", .text },
-    }).get(log_mode_str) orelse {
-        logger.err("Unrecognized logger mode: {s}", .{log_mode_str});
-        return .err;
-    };
-    return .ok;
+export fn lockStdErr() void {
+    std.debug.lockStdErr();
 }
 
-const LogMode = enum {
-    text,
-};
-
-pub var log_mode: LogMode = .text;
+export fn unlockStdErr() void {
+    std.debug.unlockStdErr();
+}
 
 pub fn log(
     comptime message_level: std.log.Level,
@@ -49,23 +28,10 @@ pub fn log(
     std.debug.lockStdErr();
     defer std.debug.unlockStdErr();
     nosuspend {
-        switch (log_mode) {
-            .text => {
-                writer.print(
-                    level_txt ++ " " ++ scope_txt ++ " " ++ format ++ "\n",
-                    args,
-                ) catch return;
-            },
-        }
+        writer.print(
+            level_txt ++ " " ++ scope_txt ++ " " ++ format ++ "\n",
+            args,
+        ) catch return;
         bw.flush() catch return;
     }
-}
-
-comptime {
-    _ = switch (builtin.os.tag) {
-        // Zig currently does not support defining variadic callconv(.c) functions, so
-        // we use a fallback implementation in C instead.
-        .windows => {},
-        else => @import("logging/default.zig"),
-    };
 }

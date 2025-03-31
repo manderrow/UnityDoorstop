@@ -100,8 +100,6 @@ __attribute__((constructor)) void doorstop_ctor() {
     if (IS_TEST)
         return;
 
-    load_logger_config();
-
     log_info("Injecting");
 
     load_config();

@@ -259,7 +259,6 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad,
     if (reasonForDllLoad != DLL_PROCESS_ATTACH)
         return TRUE;
 
-    load_logger_config();
     bool_t fixed_cwd = fix_cwd();
     DoorstopPaths *paths = paths_init(hInstDll, fixed_cwd);
 

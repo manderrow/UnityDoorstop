@@ -96,35 +96,22 @@ fn getEnvStr(comptime key: []const u8) ?[*:0]const os_char {
 }
 
 fn getEnvPath(comptime key: []const u8) ?[*:0]const os_char {
-    return processEnvPath(getEnvStrRef(key) orelse return null);
+    const path = getEnvStr(key) orelse return null;
+    checkEnvPath(key, path);
+    return path;
 }
 
-fn processEnvPath(unresolved_os_path: [:0]const os_char) ?[*:0]const os_char {
-    const unresolved_path = switch (builtin.os.tag) {
-        .windows => std.unicode.wtf16LeToWtf8AllocZ(alloc, unresolved_os_path) catch @panic("Out of memory"),
-        else => alloc.dupeZ(u8, unresolved_os_path) catch @panic("Out of memory"),
-    };
-    defer alloc.free(unresolved_path);
-    const path = std.fs.path.resolve(alloc, &.{unresolved_path}) catch |e| switch (e) {
-        error.OutOfMemory => @panic("Out of memory"),
-    };
-    return switch (builtin.os.tag) {
+fn checkEnvPath(key: []const u8, path: [*:0]const os_char) void {
+    switch (builtin.os.tag) {
         .windows => {
-            defer alloc.free(path);
-            return std.unicode.wtf8ToWtf16LeAllocZ(alloc, path) catch |e| switch (e) {
-                error.OutOfMemory => @panic("Out of memory"),
-                // environment variables returned from getEnvVarOwned are guaranteed to be valid WTF-8
-                error.InvalidWtf8 => unreachable,
-            };
+            // TODO: sanity check that path is absolute
         },
         else => {
-            const buf = alloc.realloc(path, path.len + 1) catch |e| switch (e) {
-                error.OutOfMemory => @panic("Out of memory"),
-            };
-            buf[path.len] = 0;
-            return buf[0..path.len :0];
+            if (path[0] != '/') {
+                std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key, path });
+            }
         },
-    };
+    }
 }
 
 export fn load_config() void {

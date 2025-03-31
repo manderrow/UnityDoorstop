@@ -1,20 +1,18 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
-void load_logger_config();
+void lockStdErr();
+void unlockStdErr();
 
-#define LOG_FN(f)                                                              \
-    void log_##f(const char *message, ...)                                     \
-        __attribute__((format(printf, 1, 2)));
+void log_lvl_msg(const char *level, const char *message, ...)
+    __attribute__((format(printf, 2, 3)));
 
-LOG_FN(err);
-LOG_FN(warn);
-LOG_FN(info);
-LOG_FN(debug);
+#define log_err(message, ...) log_lvl_msg("err", message, ##__VA_ARGS__)
+#define log_warn(message, ...) log_lvl_msg("warn", message, ##__VA_ARGS__)
+#define log_info(message, ...) log_lvl_msg("info", message, ##__VA_ARGS__)
+#define log_debug(message, ...) log_lvl_msg("debug", message, ##__VA_ARGS__)
 
-#undef LOG_FN
-
-#define LOG(message, ...) log_debug(message, ##__VA_ARGS__)
+#define LOG log_debug
 
 #define ASSERT_F(test, message, ...)                                           \
     if (!(test)) {                                                             \
