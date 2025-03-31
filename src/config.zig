@@ -3,6 +3,7 @@ const std = @import("std");
 
 const alloc = @import("root.zig").alloc;
 const logger = @import("util/logging.zig").logger;
+const os_char = @import("util.zig").os_char;
 
 const header = @cImport({
     @cInclude("config/config.h");
@@ -28,62 +29,102 @@ fn freeNonNull(ptr: anytype) void {
     }
 }
 
-fn getEnvBool(comptime name: []const u8) bool {
-    return (std.process.parseEnvVarInt(name, u1, 2) catch |e| switch (e) {
-        error.EnvironmentVariableNotFound => 0,
-        else => std.debug.panic("Invalid value for environment variable {s}", .{name}),
-    }) != 0;
-}
+const EnvKey = switch (builtin.os.tag) {
+    .windows => struct { utf8: []const u8, os: [*:0]const u16 },
+    else => []const u8,
+};
 
-fn getEnvValue(name: []const u8) ?[]u8 {
-    return std.process.getEnvVarOwned(alloc, name) catch |e| switch (e) {
-        error.OutOfMemory => @panic("Out of memory"),
-        error.EnvironmentVariableNotFound => null,
-        error.InvalidWtf8 => std.debug.panic("Invalid value for environment variable {s}", .{name}),
+fn getEnvKeyLiteral(comptime key: []const u8) EnvKey {
+    return switch (builtin.os.tag) {
+        .windows => .{ .utf8 = key, .os = comptime std.unicode.utf8ToUtf16LeStringLiteral(key) },
+        else => key,
     };
 }
 
-const char = switch (builtin.os.tag) {
-    .windows => u16,
-    else => u8,
-};
+inline fn getEnvBool(comptime key: []const u8) bool {
+    return getEnvBoolOs(getEnvKeyLiteral(key));
+}
 
-fn toCStr(name: []const u8, str: []u8) [:0]const char {
+fn getEnvBoolOs(key: EnvKey) bool {
     switch (builtin.os.tag) {
         .windows => {
-            defer alloc.free(str);
-            return std.unicode.utf8ToUtf16LeAllocZ(alloc, str) catch |e| switch (e) {
-                error.OutOfMemory => @panic("Out of memory"),
-                error.InvalidUtf8 => std.debug.panic("Environment variable {s} contains invalid UTF-8", .{name}),
-            };
+            const text = std.process.getenvW(key.os) orelse return false;
+            if (text[0] != 0 and text[1] == 0) {
+                switch (text[0]) {
+                    '0' => return false,
+                    '1' => return true,
+                    else => {},
+                }
+            }
+            std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key.utf8, std.unicode.fmtUtf16Le(text) });
         },
         else => {
-            if (std.mem.indexOfScalar(u8, str, 0) != null) {
-                std.debug.panic("Environment variable {s} contains an internal NUL byte", .{name});
+            const text = std.posix.getenv(key) orelse return false;
+            if (text[0] != 0 and text[1] == 0) {
+                switch (text[0]) {
+                    '0' => return false,
+                    '1' => return true,
+                    else => {},
+                }
             }
-            const len = str.len;
-            const buf = alloc.realloc(str, len + 1) catch |e| switch (e) {
-                error.OutOfMemory => @panic("Out of memory"),
-            };
-            buf[len] = 0;
-            return @ptrCast(buf[0..len]);
+            std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key, text });
         },
     }
 }
 
-fn getEnvStr(name: []const u8) ?[:0]const char {
-    const str = getEnvValue(name) orelse return null;
-    return toCStr(name, str);
+inline fn getEnvStrRef(comptime key: []const u8) ?[:0]const os_char {
+    switch (builtin.os.tag) {
+        .windows => {
+            const key_w = comptime std.unicode.utf8ToUtf16LeStringLiteral(key);
+            return std.process.getenvW(key_w);
+        },
+        else => {
+            return std.posix.getenv(key);
+        },
+    }
 }
 
-fn getEnvPath(name: []const u8) ?[:0]const char {
-    const unresolved_path = getEnvValue(name) orelse return null;
+fn getEnvStr(comptime key: []const u8) ?[:0]const os_char {
+    switch (builtin.os.tag) {
+        .windows => {
+            return alloc.dupeZ(u16, getEnvStrRef(key) orelse return null) catch @panic("Out of memory");
+        },
+        else => {
+            return alloc.dupeZ(u8, getEnvStrRef(key) orelse return null) catch @panic("Out of memory");
+        },
+    }
+}
+
+fn getEnvPath(comptime key: []const u8) ?[*:0]const os_char {
+    return processEnvPath(getEnvStrRef(key) orelse return null);
+}
+
+fn processEnvPath(unresolved_os_path: [:0]const os_char) ?[*:0]const os_char {
+    const unresolved_path = switch (builtin.os.tag) {
+        .windows => std.unicode.wtf16LeToWtf8AllocZ(alloc, unresolved_os_path) catch @panic("Out of memory"),
+        else => alloc.dupeZ(u8, unresolved_os_path) catch @panic("Out of memory"),
+    };
     defer alloc.free(unresolved_path);
     const path = std.fs.path.resolve(alloc, &.{unresolved_path}) catch |e| switch (e) {
         error.OutOfMemory => @panic("Out of memory"),
-        // else => std.debug.panic("Failed to resolve path specified in environment variable {s}: {}", .{ name, e }),
     };
-    return toCStr(name, path);
+    return switch (builtin.os.tag) {
+        .windows => {
+            defer alloc.free(path);
+            return std.unicode.wtf8ToWtf16LeAllocZ(alloc, path) catch |e| switch (e) {
+                error.OutOfMemory => @panic("Out of memory"),
+                // environment variables returned from getEnvVarOwned are guaranteed to be valid WTF-8
+                error.InvalidWtf8 => unreachable,
+            };
+        },
+        else => {
+            const buf = alloc.realloc(path, path.len + 1) catch |e| switch (e) {
+                error.OutOfMemory => @panic("Out of memory"),
+            };
+            buf[path.len] = 0;
+            return buf[0..path.len :0];
+        },
+    };
 }
 
 export fn load_config() void {
