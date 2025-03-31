@@ -2,6 +2,7 @@
 #include "../config/config.h"
 #include "../crt.h"
 #include "../util/logging.h"
+#include "../util/paths.h"
 #include "hook.h"
 #include "paths.h"
 #include "proxy/proxy.h"
@@ -213,13 +214,7 @@ void inject(DoorstopPaths const *paths) {
     HOOK_SYS(target_module, CloseHandle, close_handle_hook);
     if (config.boot_config_override) {
         if (file_exists(config.boot_config_override)) {
-            default_boot_config_path = calloc(MAX_PATH, sizeof(char_t));
-            memset(default_boot_config_path, 0, MAX_PATH * sizeof(char_t));
-            strcat(default_boot_config_path, get_working_dir());
-            strcat(default_boot_config_path, TEXT("\\"));
-            strcat(default_boot_config_path,
-                   get_file_name(program_path(), FALSE));
-            strcat(default_boot_config_path, TEXT("_Data\\boot.config"));
+            default_boot_config_path = allocDefaultConfigPath();
 
             HOOK_SYS(target_module, CreateFileW, create_file_hook);
             HOOK_SYS(target_module, CreateFileA, create_file_hook_narrow);

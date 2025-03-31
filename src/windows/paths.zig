@@ -1,27 +1,31 @@
 const std = @import("std");
 
 const alloc = @import("../root.zig").alloc;
-const util = @import("../util.zig");
 const logger = @import("../util/logging.zig").logger;
+const path_util = @import("../util/paths.zig");
+const util = @import("../util.zig");
+
+const os_char = util.os_char;
+const c_bool = util.c_bool;
 
 const c = @cImport(@cInclude("windows/paths.h"));
 
 const DoorstopPaths = extern struct {
-    app_path: [*:0]util.os_char,
-    app_dir: [*:0]util.os_char,
-    working_dir: [*:0]util.os_char,
-    doorstop_path: [*:0]util.os_char,
-    doorstop_filename: [*:0]util.os_char,
+    app_path: [*:0]os_char,
+    app_dir: [*:0]os_char,
+    working_dir: [*:0]os_char,
+    doorstop_path: [*:0]os_char,
+    doorstop_filename: [*:0]os_char,
 };
 
 export fn paths_init(doorstop_module: ?std.os.windows.HMODULE, fixed_cwd: util.c_bool) *c.DoorstopPaths {
-    const app_path = util.program_path();
-    const app_dir = util.getFolderName(app_path);
-    const working_dir = util.getWorkingDir();
-    const doorstop_path_raw = util.getModulePath(doorstop_module, 0).?;
+    const app_path = path_util.programPath();
+    const app_dir = path_util.getFolderName(app_path);
+    const working_dir = path_util.getWorkingDir();
+    const doorstop_path_raw = path_util.getModulePath(doorstop_module, 0).?;
     const doorstop_path = doorstop_path_raw.result[0..doorstop_path_raw.len :0];
 
-    const doorstop_filename = util.getFileName(doorstop_path, false);
+    const doorstop_filename = path_util.getFileName(doorstop_path, false);
 
     logger.debug("Doorstop started!", .{});
     logger.debug("Executable path: {}", .{std.unicode.fmtUtf16Le(app_path)});
@@ -45,10 +49,10 @@ export fn paths_init(doorstop_module: ?std.os.windows.HMODULE, fixed_cwd: util.c
 
 export fn paths_free(c_paths: *c.DoorstopPaths) void {
     const paths: *DoorstopPaths = @ptrCast(c_paths);
-    alloc.free(std.mem.span(paths.app_path));
-    alloc.free(std.mem.span(paths.app_dir));
-    alloc.free(std.mem.span(paths.working_dir));
-    alloc.free(std.mem.span(paths.doorstop_path));
-    alloc.free(std.mem.span(paths.doorstop_filename));
+    util.alloc.free(std.mem.span(paths.app_path));
+    util.alloc.free(std.mem.span(paths.app_dir));
+    util.alloc.free(std.mem.span(paths.working_dir));
+    util.alloc.free(std.mem.span(paths.doorstop_path));
+    util.alloc.free(std.mem.span(paths.doorstop_filename));
     alloc.destroy(paths);
 }

@@ -2,9 +2,9 @@ const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
 
-const logging = @import("util/logging.zig");
-
 pub const alloc = std.heap.smp_allocator;
+
+const logging = @import("util/logging.zig");
 
 pub const std_options = std.Options{
     .log_level = std.log.Level.debug,
@@ -13,9 +13,10 @@ pub const std_options = std.Options{
 
 comptime {
     _ = @import("config.zig");
-    _ = logging;
     _ = @import("runtimes.zig");
     _ = @import("util.zig");
+    _ = logging;
+    _ = @import("util/paths.zig");
     if (builtin.os.tag == .windows) {
         _ = @import("windows/paths.zig");
         _ = @import("windows/proxy.zig");

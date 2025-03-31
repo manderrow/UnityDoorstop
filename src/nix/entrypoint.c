@@ -10,6 +10,7 @@
 #include "../config/config.h"
 #include "../crt.h"
 #include "../util/logging.h"
+#include "../util/paths.h"
 #include "../util/util.h"
 #include "./plthook/plthook_ext.h"
 #include "./plthook/vendor/plthook.h"
@@ -126,15 +127,7 @@ __attribute__((constructor)) void doorstop_ctor() {
 
     if (config.boot_config_override) {
         if (file_exists(config.boot_config_override)) {
-            default_boot_config_path = calloc(MAX_PATH, sizeof(char_t));
-            memset(default_boot_config_path, 0, MAX_PATH * sizeof(char_t));
-            // Does this even work on macOS? I think it should be
-            // `/path/to/exe/../Resources/Data/boot.config`
-            strcat(default_boot_config_path, get_working_dir());
-            strcat(default_boot_config_path, TEXT("/"));
-            strcat(default_boot_config_path,
-                   get_file_name(program_path(), FALSE));
-            strcat(default_boot_config_path, TEXT("_Data/boot.config"));
+            default_boot_config_path = allocDefaultConfigPath();
 
 #if !defined(__APPLE__)
             if (plthook_replace(hook, "fopen64", &fopen64_hook, NULL) != 0)
