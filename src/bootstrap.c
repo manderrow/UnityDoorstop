@@ -6,7 +6,6 @@
 #include "runtimes/mono.h"
 #include "util/logging.h"
 #include "util/util.h"
-#include <errno.h>
 
 bool_t mono_debug_init_called = FALSE;
 bool_t mono_is_net35 = FALSE;
