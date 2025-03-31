@@ -45,31 +45,29 @@ inline fn getEnvBool(comptime key: []const u8) bool {
     return getEnvBoolOs(getEnvKeyLiteral(key));
 }
 
+fn invalid_env_value(key: []const u8, value: [:0]const os_char) noreturn {
+    std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key, switch (builtin.os.tag) {
+        .windows => std.unicode.fmtUtf16Le(value),
+        else => value,
+    } });
+}
+
 fn getEnvBoolOs(key: EnvKey) bool {
-    switch (builtin.os.tag) {
-        .windows => {
-            const text = std.process.getenvW(key.os) orelse return false;
-            if (text[0] != 0 and text[1] == 0) {
-                switch (text[0]) {
-                    '0' => return false,
-                    '1' => return true,
-                    else => {},
-                }
-            }
-            std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key.utf8, std.unicode.fmtUtf16Le(text) });
-        },
-        else => {
-            const text = std.posix.getenv(key) orelse return false;
-            if (text[0] != 0 and text[1] == 0) {
-                switch (text[0]) {
-                    '0' => return false,
-                    '1' => return true,
-                    else => {},
-                }
-            }
-            std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key, text });
-        },
+    const text = switch (builtin.os.tag) {
+        .windows => std.process.getenvW(key.os),
+        else => std.posix.getenv(key),
+    } orelse return false;
+    if (text[0] != 0 and text[1] == 0) {
+        switch (text[0]) {
+            '0' => return false,
+            '1' => return true,
+            else => {},
+        }
     }
+    invalid_env_value(switch (builtin.os.tag) {
+        .windows => key.utf8,
+        else => key,
+    }, text);
 }
 
 inline fn getEnvStrRef(comptime key: []const u8) ?[:0]const os_char {
@@ -84,7 +82,7 @@ inline fn getEnvStrRef(comptime key: []const u8) ?[:0]const os_char {
     }
 }
 
-fn getEnvStr(comptime key: []const u8) ?[*:0]const os_char {
+fn getEnvStr(comptime key: []const u8) ?[:0]const os_char {
     switch (builtin.os.tag) {
         .windows => {
             return alloc.dupeZ(u16, getEnvStrRef(key) orelse return null) catch @panic("Out of memory");
@@ -101,14 +99,14 @@ fn getEnvPath(comptime key: []const u8) ?[*:0]const os_char {
     return path;
 }
 
-fn checkEnvPath(key: []const u8, path: [*:0]const os_char) void {
+fn checkEnvPath(key: []const u8, path: [:0]const os_char) void {
     switch (builtin.os.tag) {
         .windows => {
             // TODO: sanity check that path is absolute
         },
         else => {
             if (path[0] != '/') {
-                std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key, path });
+                invalid_env_value(key, path);
             }
         },
     }
@@ -120,8 +118,8 @@ export fn load_config() void {
     config.ignore_disabled_env = getEnvBool("DOORSTOP_IGNORE_DISABLED_ENV");
     config.mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED");
     config.mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND");
-    config.mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS");
-    config.mono_dll_search_path_override = getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE");
+    config.mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS") orelse null;
+    config.mono_dll_search_path_override = getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE") orelse null;
     config.target_assembly = getEnvPath("DOORSTOP_TARGET_ASSEMBLY");
     if (config.target_assembly == null) {
         @panic("DOORSTOP_TARGET_ASSEMBLY environment variable must be set");
