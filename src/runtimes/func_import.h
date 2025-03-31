@@ -1,12 +1,11 @@
+#if defined(__APPLE__) || defined(__linux__)
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#endif
+
 #include "../crt.h"
 
 #define DEFINE_CALLS
-
-// Remove warnings on some compilers about unneeded calling convention
-#ifdef ENV64
-#undef IMPORT_CONV
-#define IMPORT_CONV
-#endif
 
 #define CAT2(start, middle, end) start##middle##end
 #define CAT(start, middle, end) CAT2(start, middle, end)

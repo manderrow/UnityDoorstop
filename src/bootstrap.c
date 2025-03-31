@@ -1,3 +1,9 @@
+#if defined(__APPLE__) || defined(__linux__)
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+#endif
+
 #include "bootstrap.h"
 #include "config/config.h"
 #include "crt.h"
