@@ -1,6 +1,16 @@
 #ifndef CRT_H
 #define CRT_H
 
+#include <stddef.h>
+
+extern void *malloc_custom(size_t size);
+extern void *calloc_custom(size_t num, size_t size);
+extern void free_custom(void *mem);
+
+#define malloc malloc_custom
+#define calloc calloc_custom
+#define free free_custom
+
 #if _WIN32
 #include "windows/wincrt.h"
 // Better default to account for longer name support
@@ -15,10 +25,6 @@
 
 #define TSTR(t) L##t
 #define Ts "ls"
-
-void *fopen_custom(const char_t *filename, const char_t *mode);
-size_t fread_custom(void *ptr, size_t size, size_t count, void *stream);
-int fclose_custom(void *stream);
 
 #elif defined(__APPLE__) || defined(__linux__)
 #define _GNU_SOURCE
@@ -35,19 +41,6 @@ int fclose_custom(void *stream);
 #define Ts "s"
 
 #define strlen_narrow strlen
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused"
-static void *fopen_custom(const char *filename, const char *mode) {
-    return fopen(filename, mode);
-}
-
-static size_t fread_custom(void *ptr, size_t size, size_t count, void *stream) {
-    return fread(ptr, size, count, stream);
-}
-
-static int fclose_custom(void *stream) { return fclose(stream); }
-#pragma clang diagnostic pop
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>

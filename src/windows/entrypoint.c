@@ -251,12 +251,14 @@ void inject(DoorstopPaths const *paths) {
 
 BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad,
                      LPVOID reserved) {
+    if (IS_TEST)
+        return TRUE;
+
     if (reasonForDllLoad == DLL_PROCESS_DETACH)
         SetEnvironmentVariableW(L"DOORSTOP_DISABLE", NULL);
     if (reasonForDllLoad != DLL_PROCESS_ATTACH)
         return TRUE;
 
-    init_crt();
     load_logger_config();
     bool_t fixed_cwd = fix_cwd();
     DoorstopPaths *paths = paths_init(hInstDll, fixed_cwd);

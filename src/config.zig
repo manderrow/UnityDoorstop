@@ -94,13 +94,17 @@ export fn load_config() void {
     config.mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND");
     config.mono_debug_address = @ptrCast(getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS"));
     config.target_assembly = @ptrCast(getEnvPath("DOORSTOP_TARGET_ASSEMBLY"));
+    if (config.target_assembly == null) {
+        @panic("DOORSTOP_TARGET_ASSEMBLY environment variable must be set");
+    }
     config.boot_config_override = @ptrCast(getEnvPath("DOORSTOP_BOOT_CONFIG_OVERRIDE"));
     config.mono_dll_search_path_override = @ptrCast(getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE"));
     config.clr_runtime_coreclr_path = @ptrCast(getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH"));
     config.clr_corlib_dir = @ptrCast(getEnvPath("DOORSTOP_CLR_CORLIB_DIR"));
 }
 
-export fn cleanup_config() void {
+// not used right now. Export if we want to use it in the future.
+fn cleanup_config() void {
     freeNonNull(config.target_assembly);
     freeNonNull(config.boot_config_override);
     freeNonNull(config.mono_dll_search_path_override);

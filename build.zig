@@ -33,13 +33,12 @@ pub fn build(b: *std.Build) !void {
 
     switch (target.result.os.tag) {
         .linux, .macos => {
-            try c_source_files.appendSlice(b.allocator, &.{ "nix/util.c", "nix/entrypoint.c" });
+            try c_source_files.append(b.allocator, "nix/entrypoint.c");
         },
         .windows => {
             try c_source_files.appendSlice(b.allocator, &.{
                 "windows/entrypoint.c",
                 "windows/paths.c",
-                "windows/util.c",
                 "windows/wincrt.c",
                 "util/logging/windows.c",
             });

@@ -1,6 +1,10 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <stdbool.h>
+
+extern bool IS_TEST;
+
 #if _WIN32
 #include <windows.h>
 /**
@@ -64,13 +68,14 @@ char *narrow(const char_t *str);
  *               module.
  * @param result Reference to variable which will receive the address to the
  *               module path.
- * @param size Reference to variable which will receive the length of the module
+ * @param len Reference to variable which will receive the length of the module
  *             path.
  * @param free_space How much additional space to allocate after the module path
  *                   string.
- * @return size_t Length of the allocated array (size + free_space)
+ * @return size_t Length of the allocated array (size + free_space). If 0, the
+ *                value of `result` and `size` is undefined.
  */
-size_t get_module_path(void *module, char_t **result, size_t *size,
+size_t get_module_path(void *module, char_t **result, size_t *len,
                        size_t free_space);
 
 /**
@@ -113,7 +118,7 @@ char_t *get_file_name(const char_t *path, bool_t with_ext);
  * @param file File path to check.
  * @return bool_t TRUE if file exists, otherwise FALSE.
  */
-bool_t file_exists(const char_t *file);
+bool file_exists(const char_t *file);
 
 /**
  * @brief Check if a folder exists.
@@ -121,7 +126,7 @@ bool_t file_exists(const char_t *file);
  * @param folder Folder path to check.
  * @return bool_t TRUE if folder exsits, otherwise FALSE.
  */
-bool_t folder_exists(const char_t *folder);
+bool folder_exists(const char_t *folder);
 
 /**
  * @brief Get the current working directory.
@@ -140,7 +145,5 @@ char_t *get_working_dir();
  * @return char_t* Absolue path to the current executable.
  */
 char_t *program_path();
-
-size_t get_file_size(void *file);
 
 #endif

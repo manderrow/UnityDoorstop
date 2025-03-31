@@ -14,11 +14,12 @@ pub const std_options = std.Options{
 comptime {
     _ = @import("config.zig");
     _ = logging;
-    _ = @import("runtimes/globals.zig");
+    _ = @import("runtimes.zig");
+    _ = @import("util.zig");
     if (builtin.os.tag == .windows) {
-        _ = @import("windows/proxy/proxy.zig");
+        _ = @import("windows/proxy.zig");
     }
     if (builtin.os.tag != .windows) {
-        _ = @import("nix/plthook/plthook_ext.zig");
+        _ = @import("nix/plthook_ext.zig");
     }
 }

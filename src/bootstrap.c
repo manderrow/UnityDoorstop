@@ -6,6 +6,7 @@
 #include "runtimes/mono.h"
 #include "util/logging.h"
 #include "util/util.h"
+#include <errno.h>
 
 bool_t mono_debug_init_called = FALSE;
 bool_t mono_is_net35 = FALSE;
@@ -56,33 +57,23 @@ void mono_doorstop_bootstrap(void *mono_domain) {
     free(norm_assembly_dir);
 
     LOG("Opening assembly: %" Ts, config.target_assembly);
-    void *file = fopen_custom(config.target_assembly, TSTR("r"));
-    if (!file) {
-        log_err("Failed to open assembly: %" Ts, config.target_assembly);
-        return;
-    }
-
-    size_t size = get_file_size(file);
-    void *data = malloc(size);
-    fread_custom(data, size, 1, file);
-    fclose_custom(file);
-
-    LOG("Opened Assembly DLL (%zu bytes); opening its main image", size);
 
     char *dll_path = narrow(config.target_assembly);
-    MonoImageOpenStatus s = MONO_IMAGE_OK;
-    void *image = mono.image_open_from_data_with_name(data, size, TRUE, &s,
-                                                      FALSE, dll_path);
-    free(data);
-    if (s != MONO_IMAGE_OK) {
-        log_err("Failed to load assembly image: %" Ts ". Got result: %d",
-                config.target_assembly, s);
-        return;
+    void *image;
+    {
+        MonoImageOpenFileStatus s = (MonoImageOpenFileStatus)MONO_IMAGE_OK;
+        image = mono_image_open_from_file_with_name(config.target_assembly, &s,
+                                                    FALSE, dll_path);
+        if (s != (MonoImageOpenFileStatus)MONO_IMAGE_OK) {
+            log_err("Failed to open assembly image: %" Ts ". Got result: %d",
+                    config.target_assembly, s);
+            return;
+        }
     }
 
     LOG("Image opened; loading included assembly");
 
-    s = MONO_IMAGE_OK;
+    MonoImageOpenStatus s = MONO_IMAGE_OK;
     mono.assembly_load_from_full(image, dll_path, &s, FALSE);
     free(dll_path);
     if (s != MONO_IMAGE_OK) {
@@ -144,7 +135,6 @@ void *init_mono(const char *root_domain_name, const char *runtime_version) {
     if (has_override) {
         size_t path_start = 0;
         override_dir_full = calloc(MAX_PATH, sizeof(char_t));
-        memset(override_dir_full, 0, MAX_PATH * sizeof(char_t));
 
         bool_t found_path = FALSE;
         for (size_t i = 0; i <= strlen(config_path_value); i++) {
@@ -389,16 +379,29 @@ void *hook_mono_image_open_from_data_with_name(void *data,
         strcat(new_full_path, TEXT("/"));
         strcat(new_full_path, name_file);
 
-        if (file_exists(new_full_path)) {
-            void *file = fopen_custom(new_full_path, TSTR("r"));
-            size_t size = get_file_size(file);
-            void *buf = malloc(size);
-            fread_custom(buf, 1, size, file);
-            fclose_custom(file);
-            result = mono.image_open_from_data_with_name(buf, size, need_copy,
-                                                         status, refonly, name);
-            if (need_copy)
-                free(buf);
+        MonoImageOpenFileStatus attemptStatus =
+            (MonoImageOpenFileStatus)*status;
+        result = mono_image_open_from_file_with_name(
+            new_full_path, &attemptStatus, refonly, name);
+        if (attemptStatus != (MonoImageOpenFileStatus)MONO_IMAGE_OK &&
+            attemptStatus != MONO_IMAGE_FILE_NOT_FOUND) {
+            log_err("Failed to load overridden Mono image: Error code %d",
+                    attemptStatus);
+
+            if (attemptStatus > 0) {
+                *status = (MonoImageOpenStatus)attemptStatus;
+                return NULL;
+            }
+
+            switch (attemptStatus) {
+            case MONO_IMAGE_FILE_NOT_FOUND:
+                __builtin_unreachable();
+            case MONO_IMAGE_FILE_ERROR:
+                // not sure what is the best way to adapt this error
+                *status = MONO_IMAGE_IMAGE_INVALID;
+                break;
+            }
+            return NULL;
         }
         free(new_full_path);
     }

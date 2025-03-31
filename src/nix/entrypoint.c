@@ -50,7 +50,7 @@ int fclose_hook(FILE *stream) {
     // to console
     if (stream == stdout)
         return F_OK;
-    return fclose_custom(stream);
+    return fclose(stream);
 }
 
 char_t *default_boot_config_path = NULL;
@@ -89,6 +89,9 @@ int dup2_hook(int od, int nd) {
 }
 
 __attribute__((constructor)) void doorstop_ctor() {
+    if (IS_TEST)
+        return;
+
     load_logger_config();
 
     log_info("Injecting");

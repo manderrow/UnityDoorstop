@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const iter_proxy_funcs = std.mem.splitScalar(u8, @embedFile("proxylist.txt"), '\n');
+const iter_proxy_funcs = std.mem.splitScalar(u8, @embedFile("proxy/proxylist.txt"), '\n');
 
 var proxy_func_addrs = blk: {
     @setEvalBranchQuota(8000);

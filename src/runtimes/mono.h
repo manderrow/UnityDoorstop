@@ -43,6 +43,8 @@ DEF_CALL(int, debug_enabled)
 #ifndef MONO_H
 #define MONO_H
 
+#include "../util/util.h"
+
 typedef enum {
     MONO_IMAGE_OK,
     MONO_IMAGE_ERROR_ERRNO,
@@ -50,12 +52,22 @@ typedef enum {
     MONO_IMAGE_IMAGE_INVALID
 } MonoImageOpenStatus;
 
+// this extends MonoImageOpenStatus
+typedef enum {
+    MONO_IMAGE_FILE_NOT_FOUND = -1,
+    MONO_IMAGE_FILE_ERROR = -2,
+} MonoImageOpenFileStatus;
+
 typedef enum {
     MONO_DEBUG_FORMAT_NONE,
     MONO_DEBUG_FORMAT_MONO,
     /* Deprecated, the mdb debugger is not longer supported. */
     MONO_DEBUG_FORMAT_DEBUGGER
 } MonoDebugFormat;
+
+void *mono_image_open_from_file_with_name(const char_t *path,
+                                          MonoImageOpenFileStatus *status,
+                                          int refonly, const char *name);
 
 #define IMPORT_PREFIX mono
 #if _WIN32

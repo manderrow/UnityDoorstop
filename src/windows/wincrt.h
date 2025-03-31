@@ -18,13 +18,7 @@
 #define GetFinalPathNameByHandle GetFinalPathNameByHandleA
 #endif
 
-extern void init_crt();
-
 #define STR_LEN(str) (sizeof(str) / sizeof((str)[0]))
-
-extern void *memset(void *dst, int c, size_t n);
-
-extern void *memcpy(void *dst, const void *src, size_t n);
 
 #ifdef UNICODE
 #pragma clang diagnostic push
@@ -35,10 +29,6 @@ static size_t strlen_narrow(const char *str) { return strlen(str); }
 #define strlen strlen_wide
 #endif
 
-extern void *malloc(size_t size);
-
-extern void *calloc(size_t num, size_t size);
-
 extern char_t *strcat_wide(char_t *dst, const char_t *src);
 #define strcat strcat_wide
 
@@ -48,13 +38,11 @@ extern char_t *strcpy_wide(char_t *dst, const char_t *src);
 extern char_t *strncpy_wide(char_t *dst, const char_t *src, size_t len);
 #define strncpy strncpy_wide
 
-extern void *dlsym(void *handle, const char *name);
+extern void *dlsym(HMODULE handle, const char *name);
 
 #define RTLD_LAZY 0x00001
 
-extern void *dlopen(const char_t *filename, int flag);
-
-extern void free(void *mem);
+extern HMODULE dlopen(const char_t *filename, int flag);
 
 extern int setenv(const char_t *name, const char_t *value, int overwrite);
 extern char_t *getenv_wide(const char_t *name);

@@ -2,7 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 const plthook = @import("plthook");
-const logger = @import("../../util/logging.zig").logger;
+const logger = @import("../util/logging.zig").logger;
 
 comptime {
     switch (builtin.os.tag) {
