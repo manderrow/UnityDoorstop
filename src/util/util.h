@@ -72,8 +72,9 @@ char *narrow(const char_t *str);
  *             path.
  * @param free_space How much additional space to allocate after the module path
  *                   string.
- * @return size_t Length of the allocated array (size + free_space). If 0, the
- *                value of `result` and `size` is undefined.
+ * @return size_t Length of the allocated array (size + free_space) excluding
+ *                the null-terminator. If 0, the value of `result` and `size` is
+ *                undefined.
  */
 size_t get_module_path(void *module, char_t **result, size_t *len,
                        size_t free_space);

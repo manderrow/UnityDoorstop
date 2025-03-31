@@ -128,6 +128,8 @@ __attribute__((constructor)) void doorstop_ctor() {
         if (file_exists(config.boot_config_override)) {
             default_boot_config_path = calloc(MAX_PATH, sizeof(char_t));
             memset(default_boot_config_path, 0, MAX_PATH * sizeof(char_t));
+            // Does this even work on macOS? I think it should be
+            // `/path/to/exe/../Resources/Data/boot.config`
             strcat(default_boot_config_path, get_working_dir());
             strcat(default_boot_config_path, TEXT("/"));
             strcat(default_boot_config_path,

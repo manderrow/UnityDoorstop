@@ -45,7 +45,8 @@ inline fn getEnvBool(comptime key: []const u8) bool {
     return getEnvBoolOs(getEnvKeyLiteral(key));
 }
 
-fn invalid_env_value(key: []const u8, value: [:0]const os_char) noreturn {
+fn invalidEnvValue(key: []const u8, value: [:0]const os_char) noreturn {
+    @branchHint(.cold);
     std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key, switch (builtin.os.tag) {
         .windows => std.unicode.fmtUtf16Le(value),
         else => value,
@@ -64,7 +65,7 @@ fn getEnvBoolOs(key: EnvKey) bool {
             else => {},
         }
     }
-    invalid_env_value(switch (builtin.os.tag) {
+    invalidEnvValue(switch (builtin.os.tag) {
         .windows => key.utf8,
         else => key,
     }, text);
@@ -106,7 +107,7 @@ fn checkEnvPath(key: []const u8, path: [:0]const os_char) void {
         },
         else => {
             if (path[0] != '/') {
-                invalid_env_value(key, path);
+                invalidEnvValue(key, path);
             }
         },
     }

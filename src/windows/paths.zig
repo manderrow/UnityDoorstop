@@ -16,19 +16,19 @@ const DoorstopPaths = extern struct {
 
 export fn paths_init(doorstop_module: ?std.os.windows.HMODULE, fixed_cwd: util.c_bool) *c.DoorstopPaths {
     const app_path = util.program_path();
-    const app_dir = util.get_folder_name(app_path);
-    const working_dir = util.get_working_dir();
-    const doorstop_path_raw = util.get_module_path(doorstop_module, 0).?;
+    const app_dir = util.getFolderName(app_path);
+    const working_dir = util.getWorkingDir();
+    const doorstop_path_raw = util.getModulePath(doorstop_module, 0).?;
     const doorstop_path = doorstop_path_raw.result[0..doorstop_path_raw.len :0];
 
-    const doorstop_filename = util.get_file_name(doorstop_path, .false);
+    const doorstop_filename = util.getFileName(doorstop_path, false);
 
     logger.debug("Doorstop started!", .{});
-    logger.debug("Executable path: {}", .{std.unicode.fmtUtf16Le(std.mem.span(app_path))});
-    logger.debug("Application dir: {}", .{std.unicode.fmtUtf16Le(std.mem.span(app_dir))});
-    logger.debug("Working dir: {}", .{std.unicode.fmtUtf16Le(std.mem.span(working_dir))});
+    logger.debug("Executable path: {}", .{std.unicode.fmtUtf16Le(app_path)});
+    logger.debug("Application dir: {}", .{std.unicode.fmtUtf16Le(app_dir)});
+    logger.debug("Working dir: {}", .{std.unicode.fmtUtf16Le(working_dir)});
     logger.debug("Doorstop library path: {}", .{std.unicode.fmtUtf16Le(doorstop_path)});
-    logger.debug("Doorstop library name: {}", .{std.unicode.fmtUtf16Le(std.mem.span(doorstop_filename))});
+    logger.debug("Doorstop library name: {}", .{std.unicode.fmtUtf16Le(doorstop_filename)});
 
     if (fixed_cwd != .false) {
         logger.warn("Working directory was not the same as app directory, fixed it automatically.", .{});
