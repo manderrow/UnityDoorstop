@@ -15,28 +15,28 @@ Doorstop is a tool to execute managed .NET assemblies inside Unity as early as p
 
 ## Features
 
-* **Runs first**: Doorstop runs its code before Unity can do so
-* **Configurable**: An elementary configuration file allows you to specify your assembly to execute
-* **Multiplatform**: Supports Windows, Linux, macOS
-* **Debugger support**: Allows to debug managed assemblies in Visual Studio, Rider or dnSpy *without modifications to Mono*
+- **Runs first**: Doorstop runs its code before Unity can do so
+- **Configurable**: An elementary configuration file allows you to specify your assembly to execute
+- **Multiplatform**: Supports Windows, Linux, macOS
+- **Debugger support**: Allows to debug managed assemblies in Visual Studio, Rider or dnSpy _without modifications to Mono_
 
 ## Unity runtime support
 
 Doorstop supports executing .NET assemblies in both Unity Mono and Il2Cpp runtimes.
 Depending on the runtime the game uses, Doorstop tries to run your assembly as follows:
 
-* On Unity Mono, your assembly is executed in the same runtime. As a result
-  * You don't need to include your custom Common Language Runtime (CLR); the one bundled with the game is used
-  * Your assembly is run alongside other Unity code
-  * You can access all Unity API directly
-* On Il2Cpp, your assembly is executed in CoreCLR runtime because Il2Cpp cannot run managed assemblies. As a result:
-  * You need to include .NET 6 or newer CoreCLR runtime with your managed assembly
-  * Your assembly is run in a runtime that is isolated from Il2Cpp
-  * You can access Il2Cpp runtime by interacting with its native `il2cpp_` API
+- On Unity Mono, your assembly is executed in the same runtime. As a result
+    - You don't need to include your custom Common Language Runtime (CLR); the one bundled with the game is used
+    - Your assembly is run alongside other Unity code
+    - You can access all Unity API directly
+- On Il2Cpp, your assembly is executed in CoreCLR runtime because Il2Cpp cannot run managed assemblies. As a result:
+    - You need to include .NET 6 or newer CoreCLR runtime with your managed assembly
+    - Your assembly is run in a runtime that is isolated from Il2Cpp
+    - You can access Il2Cpp runtime by interacting with its native `il2cpp_` API
 
 ## Building
 
-Doorstop uses [zig](https://ziglang.org/) to build the project. To build, run `zig build`.
+Doorstop uses [Zig](https://ziglang.org/) to build the project. To build, run `zig build`.
 
 ## Minimal injection example
 
@@ -68,14 +68,14 @@ You might need to appropriately pause the execution of your code until the momen
 
 Doorstop sets some environment variables useful for code execution:
 
-| Environment variable          | Description                                                                                                                      |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `DOORSTOP_INITIALIZED`        | Always set to `TRUE`. Use to determine if your code is run via Doorstop.                                                         |
-| `DOORSTOP_INVOKE_DLL_PATH`    | Path to the assembly executed by Doorstop relative to the current working directory.                                             |
-| `DOORSTOP_PROCESS_PATH`       | Path to the application executable where the injected assembly is run.                                                           |
-| `DOORSTOP_MANAGED_FOLDER_DIR` | *UnityMono*: Path to the game's `Managed` folder. *Il2Cpp*: Path to CoreCLR's base class library folder.                         |
-| `DOORSTOP_DLL_SEARCH_DIRS`    | Paths where the runtime searchs assemblies from by default, separated by OS-specific separator (`;` on windows and `:` on *nix). |
-| `DOORSTOP_MONO_LIB_PATH`      | *Only on UnityMono*: Full path to the mono runtime library.                                                                      |
+| Environment variable          | Description                                                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `DOORSTOP_INITIALIZED`        | Always set to `TRUE`. Use to determine if your code is run via Doorstop.                                                          |
+| `DOORSTOP_INVOKE_DLL_PATH`    | Path to the assembly executed by Doorstop relative to the current working directory.                                              |
+| `DOORSTOP_PROCESS_PATH`       | Path to the application executable where the injected assembly is run.                                                            |
+| `DOORSTOP_MANAGED_FOLDER_DIR` | _UnityMono_: Path to the game's `Managed` folder. _Il2Cpp_: Path to CoreCLR's base class library folder.                          |
+| `DOORSTOP_DLL_SEARCH_DIRS`    | Paths where the runtime searchs assemblies from by default, separated by OS-specific separator (`;` on windows and `:` on \*nix). |
+| `DOORSTOP_MONO_LIB_PATH`      | _Only on UnityMono_: Full path to the mono runtime library.                                                                       |
 
 ### Debugging
 
@@ -104,35 +104,28 @@ Consider using native debuggers like GDB and visual debugging tools like IDA or 
 
 ## Doorstop configuration
 
-Doorstop is highly configurable based on your needs and the environment you want to use.
-There are two ways to configure Doorstop: via config and CLI arguments.
+Doorstop is reasonably configurable via environment variables.
 
-### Via configuration file
+The following environment variables are consumed by Doorstop:
 
-Refer to [`doorstop_config.ini`](assets/windows/doorstop_config.ini) (Windows) or [`run.sh`](assets/nix/run.sh) for all available configuration options.
+Platform specific variables will be indicated as such.
 
-### CLI arguments
+- `bool` = `1` or `0`
+- `string` = any valid environment variable value.
+- `path` = an absolute path
 
-The following CLI arguments are available on both *nix, and Windows builds:
-
-All Doorstop arguments start with `--doorstop-` and always contain an argument. The arguments can be of the following type:
-
-* `bool` = `true` or `false`
-* `string` = any sequence of characters and numbers. Wrap into `"`s if the string contains spaces
-
-| Argument                                          | Description                                                                                          |
-| ------------------------------------------------- |------------------------------------------------------------------------------------------------------|
-| `--doorstop-enabled bool`                         | Enable or disable Doorstop.                                                                          |
-| `--doorstop-redirect-output-log bool`             | *Only on Windows*: If `true` Unity's output log is redirected to `<current folder>\output_log.txt`   |
-| `--doorstop-target-assembly string`               | Path to the assembly to load and execute.                                                            |
-| `--doorstop-boot-config-override string`          | Overrides the boot.config file path.                                                                 |
-| `--doorstop-mono-dll-search-path-override string` | Overrides default Mono DLL search path                                                               |
-| `--doorstop-mono-debug-enabled bool`              | If true, Mono debugger server will be enabled                                                        |
-| `--doorstop-mono-debug-suspend bool`              | Whether to suspend the game execution until the debugger is attached.                                |
-| `--doorstop-mono-debug-address string`            | The address to use for the Mono debugger server.                                                     |
-| `--doorstop-clr-corlib-dir string`                | Path to coreclr library that contains the CoreCLR runtime                                            |
-| `--doorstop-clr-runtime-coreclr-path string`      | Path to the directory containing the managed core libraries for CoreCLR (`mscorlib`, `System`, etc.) |
-
+| Name                                     | Type     | Description                                                                                          |
+| ---------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `DOORSTOP_ENABLED`                       | `bool`   | Enable or disable Doorstop.                                                                          |
+| `DOORSTOP_REDIRECT_OUTPUT_LOG`           | `bool`   | _Only on Windows_: If `true` Unity's output log is redirected to `<current folder>\output_log.txt`   |
+| `DOORSTOP_TARGET_ASSEMBLY`               | `path`   | Path to the assembly to load and execute.                                                            |
+| `DOORSTOP_BOOT_CONFIG_OVERRIDE`          | `path`   | Overrides the boot.config file path.                                                                 |
+| `DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE` | `string` | Overrides default Mono DLL search path                                                               |
+| `DOORSTOP_MONO_DEBUG_ENABLED`            | `bool`   | If true, Mono debugger server will be enabled                                                        |
+| `DOORSTOP_MONO_DEBUG_SUSPEND`            | `bool`   | Whether to suspend the game execution until the debugger is attached.                                |
+| `DOORSTOP_MONO_DEBUG_ADDRESS`            | `string` | The address to use for the Mono debugger server.                                                     |
+| `DOORSTOP_CLR_CORLIB_DIR`                | `path`   | Path to coreclr library that contains the CoreCLR runtime                                            |
+| `DOORSTOP_CLR_RUNTIME_CORECLR_PATH`      | `path`   | Path to the directory containing the managed core libraries for CoreCLR (`mscorlib`, `System`, etc.) |
 
 ## License
 
