@@ -25,8 +25,6 @@ extern void free_custom(void *mem);
 #define TSTR(t) t
 #define Ts "s"
 
-#define strlen_narrow strlen
-
 #define MAX_PATH PATH_MAX
 
 #endif

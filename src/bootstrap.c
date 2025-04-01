@@ -121,7 +121,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
 void *init_mono(const char *root_domain_name, const char *runtime_version) {
     LOG("Starting mono domain \"%s\"", root_domain_name);
     LOG("Runtime version: %s", runtime_version);
-    if (strlen_narrow(runtime_version) > 2 &&
+    if (runtime_version[0] != 0 && runtime_version[1] != 0 &&
         (runtime_version[1] == '2' || runtime_version[1] == '1')) {
         mono_is_net35 = TRUE;
     }

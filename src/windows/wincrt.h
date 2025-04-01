@@ -1,22 +1,8 @@
-/*
- * Custom implementation for common C runtime functions
- * This makes the DLL essentially freestanding on Windows without having to rely
- * on msvcrt.dll
- */
 #ifndef WIN_CRT_H
 #define WIN_CRT_H
 
 #include "../util/util.h"
 #include <windows.h>
-
-// Fix for MinGW's headers
-#ifdef UNICODE
-#undef GetFinalPathNameByHandle
-#define GetFinalPathNameByHandle GetFinalPathNameByHandleW
-#else
-#undef GetFinalPathNameByHandle
-#define GetFinalPathNameByHandle GetFinalPathNameByHandleA
-#endif
 
 #define STR_LEN(str) (sizeof(str) / sizeof((str)[0]))
 
@@ -24,7 +10,6 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused"
 static size_t strlen_wide(const char_t *str) { return wcslen(str) * 2; }
-static size_t strlen_narrow(const char *str) { return strlen(str); }
 #pragma clang diagnostic pop
 #define strlen strlen_wide
 #endif
