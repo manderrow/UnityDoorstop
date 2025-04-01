@@ -16,15 +16,6 @@ typedef struct {
     bool enabled;
 
     /**
-     * @brief Whether to redirect Unity output log.
-     *
-     * If enabled, Doorstop will append `-logFile` command line argument to
-     * process command line arguments. This will force Unity to write output
-     * logs to the game folder.
-     */
-    bool redirect_output_log;
-
-    /**
      * @brief Whether to ignore DOORSTOP_DISABLE.
      *
      * If enabled, Doorstop will ignore DOORSTOP_DISABLE environment variable.

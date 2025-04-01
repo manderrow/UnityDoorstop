@@ -1,6 +1,8 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+pub const paths = @import("util/paths.zig");
+
 /// The allocator used by any C-export APIs, and any APIs marked as such.
 // TODO: replace with @import("root.zig").alloc
 //       This will require widespread changes in the C codebase.

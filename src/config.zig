@@ -9,10 +9,9 @@ const header = @cImport({
     @cInclude("config/config.h");
 });
 
-export var config: header.Config = .{
+pub export var config: header.Config = .{
     .enabled = false,
     .ignore_disabled_env = false,
-    .redirect_output_log = false,
     .mono_debug_enabled = false,
     .mono_debug_suspend = false,
     .mono_debug_address = null,
@@ -115,7 +114,6 @@ fn checkEnvPath(key: []const u8, path: [:0]const os_char) void {
 
 export fn load_config() void {
     config.enabled = getEnvBool("DOORSTOP_ENABLED");
-    config.redirect_output_log = getEnvBool("DOORSTOP_REDIRECT_OUTPUT_LOG");
     config.ignore_disabled_env = getEnvBool("DOORSTOP_IGNORE_DISABLED_ENV");
     config.mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED");
     config.mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND");

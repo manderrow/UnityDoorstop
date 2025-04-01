@@ -13,7 +13,7 @@ typedef struct {
     char_t *doorstop_filename;
 } DoorstopPaths;
 
-DoorstopPaths *paths_init(HMODULE doorstop_module, bool_t fixed_cwd);
+DoorstopPaths *paths_init(HMODULE doorstop_module);
 void paths_free(DoorstopPaths *const paths);
 
 #endif

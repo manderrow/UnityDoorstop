@@ -36,14 +36,14 @@ void mono_doorstop_bootstrap(void *mono_domain) {
 
         char *config_path_n = narrow(config_path);
         char *folder_path_n = narrow(folder_path);
+        free(folder_path);
+        free(config_path);
 
-        LOG("Setting config paths: base dir: %" Ts "; config path: %" Ts,
-            folder_path, config_path);
+        LOG("Setting config paths: base dir: %s; config path: %s",
+            folder_path_n, config_path_n);
 
         mono.domain_set_config(mono_domain, folder_path_n, config_path_n);
 
-        free(folder_path);
-        free(config_path);
         free(config_path_n);
         free(folder_path_n);
 #undef CONFIG_EXT
@@ -51,6 +51,7 @@ void mono_doorstop_bootstrap(void *mono_domain) {
 
     setenv(TEXT("DOORSTOP_INVOKE_DLL_PATH"), config.target_assembly, TRUE);
     setenv(TEXT("DOORSTOP_PROCESS_PATH"), app_path, TRUE);
+    free(app_path);
 
     char *assembly_dir = mono.assembly_getrootdir();
     char_t *norm_assembly_dir = widen(assembly_dir);
@@ -115,8 +116,6 @@ void mono_doorstop_bootstrap(void *mono_domain) {
         }
     }
     LOG("Done");
-
-    free(app_path);
 }
 
 void *init_mono(const char *root_domain_name, const char *runtime_version) {
@@ -297,9 +296,7 @@ void il2cpp_doorstop_bootstrap() {
 }
 
 int init_il2cpp(const char *domain_name) {
-    char_t *domain_name_w = widen(domain_name);
-    LOG("Starting IL2CPP domain \"%" Ts "\"", domain_name_w);
-    free(domain_name_w);
+    LOG("Starting IL2CPP domain \"%s\"", domain_name);
     const int orig_result = il2cpp.init(domain_name);
     il2cpp_doorstop_bootstrap();
     return orig_result;

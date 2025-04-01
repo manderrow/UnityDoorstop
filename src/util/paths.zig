@@ -7,6 +7,8 @@ const util = @import("../util.zig");
 const c_bool = util.c_bool;
 const os_char = util.os_char;
 
+const panicWindowsError = @import("../windows/util.zig").panicWindowsError;
+
 export fn file_exists(file: [*:0]const os_char) bool {
     if (builtin.os.tag == .windows) {
         const attrs = std.os.windows.GetFileAttributesW(file) catch return false;
@@ -27,16 +29,8 @@ export fn folder_exists(file: [*:0]const os_char) bool {
     }
 }
 
-fn panicWindowsError(func: []const u8, trace: bool) noreturn {
-    @branchHint(.cold);
-    const e = std.os.windows.GetLastError();
-    if (trace) {
-        std.os.windows.unexpectedError(e) catch {};
-    }
-    std.debug.panic("{s} returned error code {}", .{ func, @intFromEnum(e) });
-}
-
-/// The result will have a null-terminator at index `len`.
+/// The result will have a null-terminator at index `len`. The result buffer is allocated
+/// using `util.alloc`.
 pub fn getModulePath(
     module: if (builtin.os.tag == .windows) ?std.os.windows.HMODULE else ?*const anyopaque,
     free_space: usize,
@@ -263,64 +257,4 @@ test "get_file_name" {
     try std.testing.expectEqualSlices(os_char, "baz", getFileName("/foo/bar/baz", false));
     try std.testing.expectEqualSlices(os_char, "baz", getFileName("/foo/bar/baz.txt", false));
     try std.testing.expectEqualSlices(os_char, "baz.txt", getFileName("baz.txt", true));
-}
-
-/// The returned buffer is **not** allocated using `util.alloc`.
-export fn allocDefaultConfigPath() [*:0]os_char {
-    switch (builtin.os.tag) {
-        .macos => {
-            const program_path = programPath();
-            defer util.alloc.free(program_path);
-            const app_folder = getFolderNameRef(getFolderNameRef(program_path));
-
-            return std.fmt.allocPrintZ(
-                util.alloc,
-                "{s}/Resources/Data/boot.config",
-                .{app_folder},
-            ) catch @panic("Out of memory");
-        },
-        // This code is equivalent to the `else` case, and they could be collapsed into
-        // just this one. However, I'm leaving the `else` case as it is more readable
-        // than this one
-        .windows => {
-            const working_dir = getWorkingDir();
-            defer util.alloc.free(working_dir);
-            const program_path = programPath();
-            defer util.alloc.free(program_path);
-            const file_name = getFileNameRef(program_path, false);
-
-            const suffix_str = "_Data" ++ std.fs.path.sep_str ++ "boot.config";
-            const suffix = switch (builtin.os.tag) {
-                .windows => std.unicode.utf8ToUtf16LeStringLiteral(suffix_str),
-                else => suffix_str,
-            };
-
-            var buf = std.ArrayListUnmanaged(os_char){};
-            buf.ensureTotalCapacityPrecise(
-                alloc,
-                working_dir.len + 1 + file_name.len + suffix.len + 1,
-            ) catch @panic("Out of memory");
-
-            buf.appendSliceAssumeCapacity(working_dir);
-            buf.appendAssumeCapacity(std.fs.path.sep);
-            buf.appendSliceAssumeCapacity(file_name);
-            buf.appendSliceAssumeCapacity(suffix);
-            buf.appendAssumeCapacity(0);
-
-            return buf.items[0 .. buf.items.len - 1 :0];
-        },
-        else => {
-            const working_dir = getWorkingDir();
-            defer util.alloc.free(working_dir);
-            const program_path = programPath();
-            defer util.alloc.free(program_path);
-            const file_name = getFileNameRef(program_path, false);
-
-            return std.fmt.allocPrintZ(
-                alloc,
-                "{s}" ++ std.fs.path.sep_str ++ "{s}_Data" ++ std.fs.path.sep_str ++ "boot.config",
-                .{ working_dir, file_name },
-            ) catch @panic("Out of memory");
-        },
-    }
 }

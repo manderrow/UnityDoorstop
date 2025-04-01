@@ -9,93 +9,23 @@
 #include "../bootstrap.h"
 #include "../config/config.h"
 #include "../crt.h"
+#include "../hooks.h"
 #include "../util/logging.h"
-#include "../util/paths.h"
 #include "../util/util.h"
 #include "./plthook/plthook_ext.h"
 #include "./plthook/vendor/plthook.h"
 
-void capture_mono_path(void *handle) {
-    char_t *result;
-    get_module_path(handle, &result, NULL, 0);
-    setenv(TEXT("DOORSTOP_MONO_LIB_PATH"), result, TRUE);
-}
+void *dlsym_hook(void *handle, const char *name);
 
-static bool_t initialized = FALSE;
-void *dlsym_hook(void *handle, const char *name) {
-#define REDIRECT_INIT(init_name, init_func, target, extra_init)                \
-    if (!strcmp(name, init_name)) {                                            \
-        if (!initialized) {                                                    \
-            initialized = TRUE;                                                \
-            init_func(handle);                                                 \
-            extra_init;                                                        \
-        }                                                                      \
-        return (void *)target;                                                 \
-    }
+int fclose_hook(FILE *stream);
 
-    // Resolve dnsym always so that it can be passed to capture_mono_path.
-    // On Unix, we use dladdr which allows to use arbitrary symbols for
-    // resolving their location.
-    // However, using handle seems to cause issues on some distros, so we pass
-    // the resolved symbol instead.
-    void *res = dlsym(handle, name);
-    REDIRECT_INIT("il2cpp_init", load_il2cpp_funcs, init_il2cpp, {});
-    REDIRECT_INIT("mono_jit_init_version", load_mono_funcs, init_mono,
-                  capture_mono_path(res));
-    REDIRECT_INIT("mono_image_open_from_data_with_name", load_mono_funcs,
-                  hook_mono_image_open_from_data_with_name,
-                  capture_mono_path(res));
-    REDIRECT_INIT("mono_jit_parse_options", load_mono_funcs,
-                  hook_mono_jit_parse_options, capture_mono_path(res));
-    REDIRECT_INIT("mono_debug_init", load_mono_funcs, hook_mono_debug_init,
-                  capture_mono_path(res));
-
-#undef REDIRECT_INIT
-    return res;
-}
-
-int fclose_hook(FILE *stream) {
-    // Some versions of Unity wrongly close stdout, which prevents writing
-    // to console
-    if (stream == stdout)
-        return F_OK;
-    return fclose(stream);
-}
-
-char_t *default_boot_config_path = NULL;
 #if !defined(__APPLE__)
-extern FILE *fopen64(const char *filename, const char *mode);
-
-FILE *fopen64_hook(const char *filename, const char *mode) {
-    const char *actual_file_name = filename;
-
-    if (strcmp(filename, default_boot_config_path) == 0) {
-        actual_file_name = config.boot_config_override;
-        LOG("Overriding boot.config to %s", actual_file_name);
-    }
-
-    return fopen64(actual_file_name, mode);
-}
+FILE *fopen64_hook(const char *filename, const char *mode);
 #endif
 
-FILE *fopen_hook(const char *filename, const char *mode) {
-    const char *actual_file_name = filename;
+FILE *fopen_hook(const char *filename, const char *mode);
 
-    if (strcmp(filename, default_boot_config_path) == 0) {
-        actual_file_name = config.boot_config_override;
-        LOG("Overriding boot.config to %s", actual_file_name);
-    }
-
-    return fopen(actual_file_name, mode);
-}
-
-int dup2_hook(int od, int nd) {
-    // Newer versions of Unity redirect stdout to player.log, we don't want
-    // that
-    if (nd == fileno(stdout) || nd == fileno(stderr))
-        return F_OK;
-    return dup2(od, nd);
-}
+int dup2_hook(int oldfd, int newfd);
 
 __attribute__((constructor)) void doorstop_ctor() {
     if (IS_TEST)
@@ -127,7 +57,7 @@ __attribute__((constructor)) void doorstop_ctor() {
 
     if (config.boot_config_override) {
         if (file_exists(config.boot_config_override)) {
-            default_boot_config_path = allocDefaultConfigPath();
+            initDefaultBootConfigPath();
 
 #if !defined(__APPLE__)
             if (plthook_replace(hook, "fopen64", &fopen64_hook, NULL) != 0)

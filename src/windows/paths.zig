@@ -18,7 +18,7 @@ const DoorstopPaths = extern struct {
     doorstop_filename: [*:0]os_char,
 };
 
-export fn paths_init(doorstop_module: ?std.os.windows.HMODULE, fixed_cwd: util.c_bool) *c.DoorstopPaths {
+export fn paths_init(doorstop_module: ?std.os.windows.HMODULE) *c.DoorstopPaths {
     const app_path = path_util.programPath();
     const app_dir = path_util.getFolderName(app_path);
     const working_dir = path_util.getWorkingDir();
@@ -33,10 +33,6 @@ export fn paths_init(doorstop_module: ?std.os.windows.HMODULE, fixed_cwd: util.c
     logger.debug("Working dir: {}", .{std.unicode.fmtUtf16Le(working_dir)});
     logger.debug("Doorstop library path: {}", .{std.unicode.fmtUtf16Le(doorstop_path)});
     logger.debug("Doorstop library name: {}", .{std.unicode.fmtUtf16Le(doorstop_filename)});
-
-    if (fixed_cwd != .false) {
-        logger.warn("Working directory was not the same as app directory, fixed it automatically.", .{});
-    }
 
     var paths = alloc.create(DoorstopPaths) catch @panic("Out of memory");
     paths.app_path = app_path;
