@@ -17,6 +17,17 @@ pub const c_bool = enum(c_int) {
     _,
 };
 
+pub fn osStrLiteral(comptime string: []const u8) [:0]const os_char {
+    return comptime switch (builtin.os.tag) {
+        .windows => std.unicode.utf8ToUtf16LeStringLiteral(string),
+        else => string ++ "",
+    };
+}
+
+pub fn empty(comptime T: type) *[0:0]T {
+    return @constCast(&[_:0]T{});
+}
+
 export const IS_TEST = builtin.is_test;
 
 export fn malloc_custom(size: usize) ?[*]align(@alignOf(std.c.max_align_t)) u8 {

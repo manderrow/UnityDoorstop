@@ -86,9 +86,9 @@ export fn initDefaultBootConfigPath() void {
     };
 }
 
-fn capture_mono_path(handle: ?*anyopaque) void {
-    const result = root.util.paths.getModulePath(@ptrCast(handle), 0).?;
-    defer root.util.alloc.free(result.result);
+fn captureMonoPath(handle: ?*anyopaque) void {
+    const result = root.util.paths.getModulePath(@ptrCast(handle)).?;
+    defer result.deinit();
     const name = "DOORSTOP_MONO_LIB_PATH";
     switch (builtin.os.tag) {
         .windows => {
@@ -138,7 +138,7 @@ fn redirect_init(
                 // resolving their location.
                 // However, using handle seems to cause issues on some distros, so we pass
                 // the resolved symbol instead.
-                capture_mono_path(std.c.dlsym(handle, name));
+                captureMonoPath(std.c.dlsym(handle, name));
             }
             init_func(handle);
             root.logger.debug("Loaded all runtime functions", .{});

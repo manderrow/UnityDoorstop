@@ -98,7 +98,7 @@ BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad,
     GetFinalPathNameByHandle(stdout_handle, handle_path, MAX_PATH, 0);
     LOG("Standard output handle path: %" Ts, handle_path);
 
-    load_proxy(paths->doorstop_filename);
+    load_proxy(paths->doorstop_path);
     LOG("Proxy loaded");
 
     load_config();

@@ -29,43 +29,37 @@ export fn folder_exists(file: [*:0]const os_char) bool {
     }
 }
 
-/// The result will have a null-terminator at index `len`. The result buffer is allocated
-/// using `util.alloc`.
 pub fn getModulePath(
     module: if (builtin.os.tag == .windows) ?std.os.windows.HMODULE else ?*const anyopaque,
-    free_space: usize,
 ) ?struct {
-    /// There will be a null-terminator at the end of the module path as well as at the
-    /// end of the allocation. The range from the inner null-terminator to the end is
-    /// undefined.
-    result: [:0]os_char,
-    len: usize,
+    result: [:0]const os_char,
+    alloc_len: if (builtin.os.tag == .windows) usize else void,
+
+    pub fn deinit(self: @This()) void {
+        if (@TypeOf(self.alloc_len) != void) {
+            alloc.free(@constCast(self.result.ptr)[0..self.alloc_len]);
+        }
+    }
 } {
     if (builtin.os.tag == .windows) {
         var buf_size: usize = std.os.windows.MAX_PATH;
         while (true) {
-            const buf = util.alloc.allocSentinel(os_char, buf_size, 0) catch return null;
+            const buf = alloc.alloc(os_char, buf_size) catch return null;
             // see https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew
             // pass `buf_size + 1` to include the null-terminator
-            const rc = std.os.windows.kernel32.GetModuleFileNameW(module, buf.ptr, @min(std.math.maxInt(u32), buf_size + 1));
+            const rc = std.os.windows.kernel32.GetModuleFileNameW(module, buf.ptr, std.math.lossyCast(u32, buf_size));
             if (rc == 0) {
                 panicWindowsError("GetModuleFileNameW");
             } else if (std.os.windows.GetLastError() == .INSUFFICIENT_BUFFER) {
                 buf_size += buf_size / 2;
             } else {
-                const available = buf_size - rc;
-                if (available >= free_space) {
-                    return .{
-                        // cast the pointer to account for the null-terminator added by GetModuleFileNameW
-                        .result = @ptrCast(buf),
-                        .len = rc,
-                    };
-                } else {
-                    // allocate exactly enough extra
-                    buf_size += free_space - available;
-                }
+                return .{
+                    // cast the pointer to account for the null-terminator added by GetModuleFileNameW
+                    .result = buf[0..rc :0],
+                    .alloc_len = buf.len,
+                };
             }
-            util.alloc.free(buf);
+            alloc.free(buf);
         }
     } else {
         const dlfcn = @cImport({
@@ -78,44 +72,20 @@ pub fn getModulePath(
         if (dlfcn.dladdr(module, &info) == 0) {
             @panic("Could not locate module");
         }
-        const name = std.mem.span(@as([*:0]const u8, info.dli_fname));
-        const buf = util.alloc.allocSentinel(u8, name.len + free_space, 0) catch @panic("Out of memory");
-        @memcpy(buf[0..name.len], name);
-        buf[name.len] = 0;
         return .{
-            .result = buf,
-            .len = name.len,
+            .result = std.mem.span(@as([*:0]const u8, info.dli_fname)),
+            .alloc_len = {},
         };
     }
 }
 
-fn getModulePathC(
-    module: if (builtin.os.tag == .windows) ?std.os.windows.HMODULE else ?*const anyopaque,
-    result: *?[*:0]os_char,
-    len_ptr: ?*usize,
-    free_space: usize,
-) callconv(.c) usize {
-    const r = getModulePath(module, free_space) orelse return 0;
-    result.* = r.result;
-    if (len_ptr) |ptr| {
-        ptr.* = r.result.len;
-    }
-    return r.len;
-}
-
-comptime {
-    @export(&getModulePathC, .{ .name = "get_module_path" });
-}
-
 export fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
     if (builtin.os.tag == .windows) {
-        var dangling_buf = [_]u16{};
         // According to official docs, in this case, `needed` includes the null-terminator...
         const needed = std.os.windows.kernel32.GetFullPathNameW(
             path,
             0,
-            // this should be safe because nBufferLength is 0
-            @ptrCast((&dangling_buf).ptr),
+            util.empty(u16),
             null,
         );
         if (needed == 0) {
@@ -161,7 +131,9 @@ comptime {
 
 pub fn programPath() [:0]os_char {
     if (builtin.os.tag == .windows) {
-        return getModulePath(null, 0).?.result;
+        const buf = getModulePath(null).?;
+        defer buf.deinit();
+        return util.alloc.dupeZ(os_char, buf.result) catch @panic("Out of memory");
     } else {
         var buf: [std.fs.max_path_bytes]u8 = undefined;
         return toOsString(std.fs.selfExePath(&buf) catch |e| std.debug.panic("Failed to determine program path: {}", .{e}));

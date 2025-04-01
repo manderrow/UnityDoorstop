@@ -2,7 +2,15 @@ const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
 
-pub const alloc = std.heap.smp_allocator;
+var allocInstance = switch (builtin.mode) {
+    .Debug, .ReleaseSafe => std.heap.DebugAllocator(.{}).init,
+    .ReleaseFast, .ReleaseSmall => {},
+};
+
+pub const alloc = switch (builtin.mode) {
+    .Debug, .ReleaseSafe => allocInstance.allocator(),
+    .ReleaseFast, .ReleaseSmall => std.heap.smp_allocator,
+};
 
 pub const config = &@import("config.zig").config;
 pub const hooks = @import("hooks.zig");

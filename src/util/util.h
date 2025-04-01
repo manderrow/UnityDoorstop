@@ -60,26 +60,6 @@ char_t *widen(const char *str);
 char *narrow(const char_t *str);
 
 /**
- * @brief Get the full path to the given module.
- *
- * @remark Module path string must be freed by caller.
- *
- * @param module Module to get the path of. If NULL, gets path of the current
- *               module.
- * @param result Reference to variable which will receive the address to the
- *               module path.
- * @param len Reference to variable which will receive the length of the module
- *             path.
- * @param free_space How much additional space to allocate after the module path
- *                   string.
- * @return size_t Length of the allocated array (size + free_space) excluding
- *                the null-terminator. If 0, the value of `result` and `size` is
- *                undefined.
- */
-size_t get_module_path(void *module, char_t **result, size_t *len,
-                       size_t free_space);
-
-/**
  * @brief Get the full path to the relative path.
  *
  * @remark Return value must be freed by caller.
