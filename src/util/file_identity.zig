@@ -5,6 +5,7 @@ const root = @import("../root.zig");
 
 const os_char = root.util.os_char;
 
+/// A platform-specific structure that uniquely identifies a filesystem entity.
 pub const FileIdentity = switch (builtin.os.tag) {
     .linux => struct {
         dev_major: u32,
@@ -15,10 +16,11 @@ pub const FileIdentity = switch (builtin.os.tag) {
         dev: i32,
         ino: u64,
     },
-    .windows => FILE_ID_INFO,
+    .windows => windows.FILE_ID_INFO,
     else => @compileError("Unsupported OS"),
 };
 
+/// Checks if two file identities are the same.
 pub fn are_same(a: FileIdentity, b: FileIdentity) bool {
     return switch (builtin.os.tag) {
         .linux => a.dev_major == b.dev_major and a.dev_minor == b.dev_minor and a.ino == b.ino,
@@ -30,7 +32,12 @@ pub fn are_same(a: FileIdentity, b: FileIdentity) bool {
 
 const Handle = if (builtin.os.tag == .windows) std.os.windows.HANDLE else i32;
 
-/// If path is empty, `dir` itself will be inspected and can be any kind of file handle.
+/// Returns the identity of a file or folder. `dir` and `path` specify the entity to
+/// identify:
+///
+/// - If `path` is empty, `dir` itself will be inspected and can be any kind of file handle.
+/// - If both `dir` and `path` are specified, `path` will be treated as relative to `dir`.
+/// - If `dir` is null, the current working directory will be used.
 pub fn getFileIdentity(dir: ?Handle, path: [:0]const os_char) !FileIdentity {
     switch (builtin.os.tag) {
         .linux => {
@@ -90,49 +97,29 @@ pub fn getFileIdentity(dir: ?Handle, path: [:0]const os_char) !FileIdentity {
             });
             defer std.os.windows.CloseHandle(handle);
 
-            return getFileInfo(handle, .FileIdInfo);
+            var buf: windows.FILE_ID_INFO = undefined;
+            if (windows.GetFileInformationByHandleEx(handle, .FileIdInfo, &buf, @sizeOf(@TypeOf(buf))) == 0) {
+                return std.os.windows.unexpectedError(std.os.windows.GetLastError());
+            }
+            return buf;
         },
         else => @compileError("Unsupported OS"),
     }
 }
 
-extern "kernel32" fn GetFileInformationByHandleEx(
-    in_hFile: std.os.windows.HANDLE,
-    in_FileInformationClass: std.os.windows.FILE_INFO_BY_HANDLE_CLASS,
-    out_lpFileInformation: *anyopaque,
-    in_dwBufferSize: std.os.windows.DWORD,
-) callconv(.winapi) std.os.windows.BOOL;
+// some extensions to Zig's Windows APIs
+const windows = struct {
+    pub extern "kernel32" fn GetFileInformationByHandleEx(
+        in_hFile: std.os.windows.HANDLE,
+        in_FileInformationClass: std.os.windows.FILE_INFO_BY_HANDLE_CLASS,
+        out_lpFileInformation: *anyopaque,
+        in_dwBufferSize: std.os.windows.DWORD,
+    ) callconv(.winapi) std.os.windows.BOOL;
 
-const FILE_ID_INFO = extern struct {
-    volume_serial_number: u64,
-    file_id: extern struct {
-        identifier: [16]u8,
-    },
-};
-
-fn GetFileInfo(comptime class: std.os.windows.FILE_INFO_BY_HANDLE_CLASS) type {
-    return switch (class) {
-        .FileBasicInfo => std.os.windows.FILE_BASIC_INFORMATION,
-        .FileStandardInfo => std.os.windows.FILE_STANDARD_INFORMATION,
-        .FileNameInfo => std.os.windows.FILE_NAME_INFO,
-        .FileRenameInfo => std.os.windows.FILE_RENAME_INFORMATION_EX,
-        .FileDispositionInfo => std.os.windows.FILE_DISPOSITION_INFORMATION_EX,
-        .FileEndOfFileInfo => std.os.windows.FILE_END_OF_FILE_INFORMATION,
-        .FileAttributeTagInfo => std.os.windows.FILE_ATTRIBUTE_TAG_INFO,
-        .FileAlignmentInfo => std.os.windows.FILE_ALIGNMENT_INFORMATION,
-        .FileIdInfo => FILE_ID_INFO,
-        else => @compileError("Type of class " ++ @tagName(class) ++ " is unknown"),
-    };
-}
-
-fn getFileInfo(file: std.os.windows.HANDLE, comptime class: std.os.windows.FILE_INFO_BY_HANDLE_CLASS) error{Unexpected}!GetFileInfo(class) {
-    return switch (class) {
-        inline else => |c| {
-            var buf: GetFileInfo(c) = undefined;
-            if (GetFileInformationByHandleEx(file, class, &buf, @sizeOf(@TypeOf(buf))) == 0) {
-                return std.os.windows.unexpectedError(std.os.windows.GetLastError());
-            }
-            return buf;
+    pub const FILE_ID_INFO = extern struct {
+        volume_serial_number: u64,
+        file_id: extern struct {
+            identifier: [16]u8,
         },
     };
-}
+};

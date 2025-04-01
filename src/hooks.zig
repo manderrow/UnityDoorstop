@@ -93,7 +93,7 @@ fn capture_mono_path(handle: ?*anyopaque) void {
     switch (builtin.os.tag) {
         .windows => {
             if (std.os.windows.kernel32.SetEnvironmentVariableW(comptime std.unicode.utf8ToUtf16LeStringLiteral(name), result.result) == 0) {
-                panicWindowsError("SetEnvironmentVariableW", true);
+                panicWindowsError("SetEnvironmentVariableW");
             }
         },
         else => {

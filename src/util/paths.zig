@@ -36,32 +36,34 @@ pub fn getModulePath(
     free_space: usize,
 ) ?struct {
     /// There will be a null-terminator at the end of the module path as well as at the
-    /// end of the allocation.
+    /// end of the allocation. The range from the inner null-terminator to the end is
+    /// undefined.
     result: [:0]os_char,
     len: usize,
 } {
     if (builtin.os.tag == .windows) {
         var buf_size: usize = std.os.windows.MAX_PATH;
         while (true) {
-            const buf = util.alloc.allocSentinel(os_char, @intCast(buf_size), 0) catch return null;
-            const len = (std.os.windows.GetModuleFileNameW(module, buf.ptr, @truncate(buf_size)) catch |e| switch (e) {
-                // this intFromEnum cuts the binary size by more than 50%
-                error.Unexpected => panicWindowsError("GetModuleFileNameW", false),
-            }).len;
-            if (std.os.windows.GetLastError() != .INSUFFICIENT_BUFFER) {
-                const available = buf_size - len;
+            const buf = util.alloc.allocSentinel(os_char, buf_size, 0) catch return null;
+            // see https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew
+            // pass `buf_size + 1` to include the null-terminator
+            const rc = std.os.windows.kernel32.GetModuleFileNameW(module, buf.ptr, @min(std.math.maxInt(u32), buf_size + 1));
+            if (rc == 0) {
+                panicWindowsError("GetModuleFileNameW");
+            } else if (std.os.windows.GetLastError() == .INSUFFICIENT_BUFFER) {
+                buf_size += buf_size / 2;
+            } else {
+                const available = buf_size - rc;
                 if (available >= free_space) {
                     return .{
                         // cast the pointer to account for the null-terminator added by GetModuleFileNameW
                         .result = @ptrCast(buf),
-                        .len = len,
+                        .len = rc,
                     };
                 } else {
                     // allocate exactly enough extra
                     buf_size += free_space - available;
                 }
-            } else {
-                buf_size += std.os.windows.MAX_PATH;
             }
             util.alloc.free(buf);
         }
@@ -117,7 +119,7 @@ export fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
             null,
         );
         if (needed == 0) {
-            panicWindowsError("GetFullPathNameW", true);
+            panicWindowsError("GetFullPathNameW");
         }
         const res = util.alloc.alloc(os_char, @intCast(needed)) catch @panic("Out of memory");
         // but in this case `len` does not include the null-terminator.
@@ -129,7 +131,7 @@ export fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
             null,
         );
         if (len == 0) {
-            panicWindowsError("GetFullPathNameW", true);
+            panicWindowsError("GetFullPathNameW");
         }
         // see comments above for why this is `>=` instead of `>`
         if (len != needed - 1) {
