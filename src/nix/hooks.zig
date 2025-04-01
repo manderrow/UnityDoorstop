@@ -18,14 +18,28 @@ fn export_fopen_hook(comptime real_fn: @TypeOf(std.c.fopen), comptime name: []co
     comptime {
         const f = struct {
             fn fopen_hook(noalias filename: [*:0]const u8, noalias mode: [*:0]const u8) callconv(.c) ?*std.c.FILE {
-                var open_filename = filename;
+                const stream = real_fn(filename, mode) orelse return null;
 
-                if (std.mem.eql(u8, std.mem.span(filename), root.hooks.defaultBootConfigPath)) {
-                    open_filename = root.config.boot_config_override;
-                    root.logger.debug("Overriding boot.config to {s}", .{open_filename});
+                const fd = fileno(stream);
+
+                const id = root.util.file_identity.getFileIdentity(fd, "") catch |e| {
+                    root.logger.err("Failed to get identity of file \"{s}\": {}", .{ filename, e });
+                    return stream;
+                };
+
+                if (root.util.file_identity.are_same(id, root.hooks.defaultBootConfig)) {
+                    const rc = std.posix.system.fclose(stream);
+                    if (rc != 0) {
+                        switch (std.posix.errno(rc)) {
+                            .BADF => unreachable,
+                            else => |err| std.posix.unexpectedErrno(err) catch {},
+                        }
+                    }
+                    root.logger.debug("Overriding boot.config to \"{s}\"", .{root.config.boot_config_override});
+                    return real_fn(root.config.boot_config_override, mode);
                 }
 
-                return real_fn(open_filename, mode);
+                return stream;
             }
         }.fopen_hook;
         @export(&f, .{ .name = name });

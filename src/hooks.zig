@@ -16,26 +16,23 @@ comptime {
     };
 }
 
-pub var defaultBootConfigPath: [:0]os_char = undefined;
+pub var defaultBootConfig: util.file_identity.FileIdentity = undefined;
 
 /// The returned buffer is **not** allocated using `util.alloc`.
 export fn initDefaultBootConfigPath() void {
-    switch (builtin.os.tag) {
-        .macos => {
+    const path = switch (builtin.os.tag) {
+        .macos => blk: {
             const program_path = util.paths.programPath();
             defer util.alloc.free(program_path);
             const app_folder = util.paths.getFolderNameRef(util.paths.getFolderNameRef(program_path));
 
-            defaultBootConfigPath = std.fmt.allocPrintZ(
+            break :blk std.fmt.allocPrintZ(
                 alloc,
                 "{s}/Resources/Data/boot.config",
                 .{app_folder},
             ) catch @panic("Out of memory");
         },
-        // This code is equivalent to the `else` case, and they could be collapsed into
-        // just this one. However, I'm leaving the `else` case as it is more readable
-        // than this one
-        .windows => {
+        .windows => blk: {
             const working_dir = util.paths.getWorkingDir();
             defer util.alloc.free(working_dir);
             const program_path = util.paths.programPath();
@@ -49,10 +46,12 @@ export fn initDefaultBootConfigPath() void {
             };
 
             var buf = std.ArrayListUnmanaged(os_char){};
+
             buf.ensureTotalCapacityPrecise(
                 alloc,
                 working_dir.len + 1 + file_name.len + suffix.len + 1,
             ) catch @panic("Out of memory");
+            errdefer buf.deinit(alloc);
 
             buf.appendSliceAssumeCapacity(working_dir);
             buf.appendAssumeCapacity(std.fs.path.sep);
@@ -60,22 +59,31 @@ export fn initDefaultBootConfigPath() void {
             buf.appendSliceAssumeCapacity(suffix);
             buf.appendAssumeCapacity(0);
 
-            defaultBootConfigPath = buf.items[0 .. buf.items.len - 1 :0];
+            break :blk buf.items[0 .. buf.items.len - 1 :0];
         },
-        else => {
+        else => blk: {
             const working_dir = util.paths.getWorkingDir();
             defer util.alloc.free(working_dir);
             const program_path = util.paths.programPath();
             defer util.alloc.free(program_path);
             const file_name = util.paths.getFileNameRef(program_path, false);
 
-            defaultBootConfigPath = std.fmt.allocPrintZ(
+            break :blk std.fmt.allocPrintZ(
                 alloc,
                 "{s}" ++ std.fs.path.sep_str ++ "{s}_Data" ++ std.fs.path.sep_str ++ "boot.config",
                 .{ working_dir, file_name },
             ) catch @panic("Out of memory");
         },
-    }
+    };
+
+    defer alloc.free(path);
+
+    defaultBootConfig = util.file_identity.getFileIdentity(null, path) catch |e| {
+        std.debug.panic("Failed to get identity of default boot.config file at \"{s}\": {}", .{
+            if (builtin.os.tag == .windows) std.unicode.fmtUtf16Le(path) else path,
+            e,
+        });
+    };
 }
 
 fn capture_mono_path(handle: ?*anyopaque) void {
@@ -145,7 +153,9 @@ const bootstrap = @cImport(@cInclude("bootstrap.h"));
 export fn dlsym_hook(handle: Module, name_ptr: [*:0]const u8) ?*anyopaque {
     const name = std.mem.span(name_ptr);
 
-    root.logger.debug("dlsym({*}, \"{s}\")", .{ handle, name });
+    if (builtin.mode == .Debug) {
+        root.logger.debug(std.fmt.comptimePrint("dlsym(0x{{?x:0>{}}}, \"{{s}}\")", .{@sizeOf(*anyopaque) * 2}), .{ handle, name });
+    }
 
     inline for (.{
         .{ "il2cpp_init", bootstrap.load_il2cpp_funcs, &bootstrap.init_il2cpp, false },

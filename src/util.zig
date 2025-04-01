@@ -1,6 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+pub const file_identity = @import("util/file_identity.zig");
 pub const paths = @import("util/paths.zig");
 
 /// The allocator used by any C-export APIs, and any APIs marked as such.
