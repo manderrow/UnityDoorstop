@@ -19,12 +19,6 @@ void *dlsym_hook(void *handle, const char *name);
 
 int fclose_hook(FILE *stream);
 
-#if !defined(__APPLE__)
-FILE *fopen64_hook(const char *filename, const char *mode);
-#endif
-
-FILE *fopen_hook(const char *filename, const char *mode);
-
 int dup2_hook(int oldfd, int newfd);
 
 __attribute__((constructor)) void doorstop_ctor() {
@@ -55,24 +49,7 @@ __attribute__((constructor)) void doorstop_ctor() {
         log_warn("Failed to hook dlsym, ignoring it. Error: %s",
                  plthook_error());
 
-    if (config.boot_config_override) {
-        if (file_exists(config.boot_config_override)) {
-            initDefaultBootConfigPath();
-
-#if !defined(__APPLE__)
-            if (plthook_replace(hook, "fopen64", &fopen64_hook, NULL) != 0)
-                log_warn("Failed to hook fopen64, ignoring it. Error: %s",
-                         plthook_error());
-#endif
-            if (plthook_replace(hook, "fopen", &fopen_hook, NULL) != 0)
-                log_warn("Failed to hook fopen, ignoring it. Error: %s",
-                         plthook_error());
-        } else {
-            LOG("The boot.config file won't be overriden because the provided "
-                "one does not exist: %s",
-                config.boot_config_override);
-        }
-    }
+    hookBootConfig(hook);
 
     if (plthook_replace(hook, "fclose", &fclose_hook, NULL) != 0)
         log_warn("Failed to hook fclose, ignoring it. Error: %s",

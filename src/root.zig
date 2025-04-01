@@ -12,7 +12,7 @@ pub const alloc = switch (builtin.mode) {
     .ReleaseFast, .ReleaseSmall => std.heap.smp_allocator,
 };
 
-pub const config = &@import("config.zig").config;
+pub const config = &@import("Config.zig").instance;
 pub const hooks = @import("hooks.zig");
 const logging = @import("util/logging.zig");
 pub const util = @import("util.zig");
@@ -30,10 +30,8 @@ comptime {
     _ = @import("runtimes.zig");
     _ = util;
     _ = logging;
-    _ = @import("util/paths.zig");
     if (builtin.os.tag == .windows) {
         _ = @import("windows/paths.zig");
-        _ = @import("windows/proxy.zig");
     }
     if (builtin.os.tag != .windows) {
         _ = @import("nix/plthook_ext.zig");

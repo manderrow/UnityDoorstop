@@ -5,52 +5,9 @@ const root = @import("../root.zig");
 const alloc = root.alloc;
 const os_char = root.util.os_char;
 
-const iter_proxy_funcs = std.mem.splitScalar(u8, @embedFile("proxy/proxylist.txt"), '\n');
+const entrypoint = @import("entrypoint.zig");
 
-var proxy_func_addrs = blk: {
-    @setEvalBranchQuota(8000);
-
-    var fields: []const std.builtin.Type.StructField = &.{};
-
-    var funcs = iter_proxy_funcs;
-    while (funcs.next()) |name| {
-        if (std.mem.indexOfScalar(u8, name, ' ') != null) {
-            @compileError("proxy function name \"" ++ name ++ "\" contains whitespace");
-        }
-        fields = fields ++ .{std.builtin.Type.StructField{
-            .name = @ptrCast(name ++ .{0}),
-            .type = std.os.windows.FARPROC,
-            .default_value_ptr = null,
-            .is_comptime = false,
-            .alignment = @alignOf(std.os.windows.FARPROC),
-        }};
-    }
-
-    break :blk @as(@Type(.{ .@"struct" = .{
-        .layout = .auto,
-        .fields = fields,
-        .decls = &.{},
-        .is_tuple = false,
-    } }), undefined);
-};
-
-comptime {
-    @setEvalBranchQuota(8000);
-    var funcs = iter_proxy_funcs;
-    while (funcs.next()) |name| {
-        @export(&struct {
-            fn f() callconv(.c) void {
-                return @as(*fn () callconv(.c) void, @ptrCast(@field(proxy_func_addrs, name)))();
-            }
-        }.f, .{ .name = name });
-    }
-}
-
-fn load_functions(dll: std.os.windows.HMODULE) void {
-    inline for (comptime std.meta.fieldNames(@TypeOf(proxy_func_addrs))) |field| {
-        @field(proxy_func_addrs, field) = std.os.windows.kernel32.GetProcAddress(dll, field).?;
-    }
-}
+var actual_dll: ?std.os.windows.HMODULE = null;
 
 export fn load_proxy(module_path: [*:0]const os_char) void {
     const module_name = root.util.paths.getFileName(std.mem.span(module_path), true);
@@ -65,7 +22,7 @@ export fn load_proxy(module_path: [*:0]const os_char) void {
             }
         }
         if (eq) {
-            root.logger.debug("Detected injection as supported proxy. Loading delegate.", .{});
+            root.logger.debug("Detected injection as proxy. Loading actual DLL.", .{});
         }
     }
 
@@ -78,11 +35,19 @@ export fn load_proxy(module_path: [*:0]const os_char) void {
     sys_full_path[sys_len] = std.fs.path.sep;
     @memcpy(sys_full_path[sys_len + 1 ..], proxy_name);
 
-    root.logger.debug("Looking for delegate DLL at {s}", .{std.unicode.fmtUtf16Le(sys_full_path)});
+    root.logger.debug("Looking for actual DLL at {s}", .{std.unicode.fmtUtf16Le(sys_full_path)});
 
-    const handle = std.os.windows.LoadLibraryW(sys_full_path) catch |e| {
-        std.debug.panic("Failed to load delegate DLL: {}", .{e});
+    actual_dll = std.os.windows.LoadLibraryW(sys_full_path) catch |e| {
+        std.debug.panic("Failed to load actual DLL: {}", .{e});
     };
+}
 
-    load_functions(handle);
+pub fn proxyGetProcAddress(module: std.os.windows.HMODULE, name: [:0]const u8) ?*anyopaque {
+    if (module == entrypoint.doorstop_module) {
+        if (actual_dll) |dll| {
+            return std.os.windows.kernel32.GetProcAddress(dll, name);
+        }
+    }
+
+    return null;
 }

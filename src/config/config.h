@@ -16,23 +16,9 @@ typedef struct {
     bool enabled;
 
     /**
-     * @brief Whether to ignore DOORSTOP_DISABLE.
-     *
-     * If enabled, Doorstop will ignore DOORSTOP_DISABLE environment variable.
-     * This is sometimes useful with Steam games that break env var isolation.
-     */
-    bool ignore_disabled_env;
-
-    /**
      * @brief Path to a managed assembly to invoke.
      */
     const char_t *target_assembly;
-
-    /**
-     * @brief Path to a custom boot.config file to use. If enabled, this file
-     * takes precedence over the default one in the Data folder.
-     */
-    const char_t *boot_config_override;
 
     /**
      * @brief Path to use as the main DLL search path. If enabled, this folder

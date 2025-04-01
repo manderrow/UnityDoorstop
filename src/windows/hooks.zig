@@ -13,7 +13,7 @@ export fn close_handle_hook(handle: std.os.windows.HANDLE) callconv(.winapi) roo
     return @enumFromInt(@intFromBool(std.os.windows.ntdll.NtClose(handle) == .SUCCESS));
 }
 
-extern "kernel32" fn CreateFileA(
+pub extern "kernel32" fn CreateFileA(
     lpFileName: std.os.windows.LPCSTR,
     dwDesiredAccess: std.os.windows.DWORD,
     dwShareMode: std.os.windows.DWORD,
@@ -23,17 +23,21 @@ extern "kernel32" fn CreateFileA(
     hTemplateFile: ?std.os.windows.HANDLE,
 ) callconv(.winapi) std.os.windows.HANDLE;
 
-fn create_file_hook(comptime char: type, comptime real_fn: fn (
-    lpFileName: [*:0]const char,
-    dwDesiredAccess: std.os.windows.DWORD,
-    dwShareMode: std.os.windows.DWORD,
-    lpSecurityAttributes: ?*std.os.windows.SECURITY_ATTRIBUTES,
-    dwCreationDisposition: std.os.windows.DWORD,
-    dwFlagsAndAttributes: std.os.windows.DWORD,
-    hTemplateFile: ?std.os.windows.HANDLE,
-) callconv(.winapi) std.os.windows.HANDLE) *const anyopaque {
+fn CreateFileFn(comptime char: type) type {
+    return fn (
+        lpFileName: [*:0]const char,
+        dwDesiredAccess: std.os.windows.DWORD,
+        dwShareMode: std.os.windows.DWORD,
+        lpSecurityAttributes: ?*std.os.windows.SECURITY_ATTRIBUTES,
+        dwCreationDisposition: std.os.windows.DWORD,
+        dwFlagsAndAttributes: std.os.windows.DWORD,
+        hTemplateFile: ?std.os.windows.HANDLE,
+    ) callconv(.winapi) std.os.windows.HANDLE;
+}
+
+fn genCreateFileHook(comptime char: type, comptime real_fn: CreateFileFn(char)) CreateFileFn(char) {
     return struct {
-        fn create_file_hook(
+        fn CreateFileHook(
             lpFileName: [*:0]const char,
             dwDesiredAccess: std.os.windows.DWORD,
             dwShareMode: std.os.windows.DWORD,
@@ -67,10 +71,11 @@ fn create_file_hook(comptime char: type, comptime real_fn: fn (
 
             if (root.util.file_identity.are_same(id, root.hooks.defaultBootConfig)) {
                 std.os.windows.CloseHandle(handle);
-                root.logger.debug("Overriding boot.config to \"{s}\"", .{std.unicode.fmtUtf16Le(std.mem.span(root.config.boot_config_override))});
+                const boot_config_override = root.config.boot_config_override.?;
+                root.logger.debug("Overriding boot.config to \"{s}\"", .{std.unicode.fmtUtf16Le(boot_config_override)});
                 // caller can handle the error
                 return std.os.windows.kernel32.CreateFileW(
-                    root.config.boot_config_override,
+                    boot_config_override,
                     dwDesiredAccess,
                     dwShareMode,
                     lpSecurityAttributes,
@@ -82,10 +87,8 @@ fn create_file_hook(comptime char: type, comptime real_fn: fn (
 
             return handle;
         }
-    }.create_file_hook;
+    }.CreateFileHook;
 }
 
-comptime {
-    @export(&create_file_hook(std.os.windows.WCHAR, std.os.windows.kernel32.CreateFileW), .{ .name = "create_file_hook" });
-    @export(&create_file_hook(std.os.windows.CHAR, CreateFileA), .{ .name = "create_file_hook_narrow" });
-}
+pub const createFileWHook = genCreateFileHook(std.os.windows.WCHAR, std.os.windows.kernel32.CreateFileW);
+pub const createFileAHook = genCreateFileHook(std.os.windows.CHAR, CreateFileA);

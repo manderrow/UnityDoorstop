@@ -5,21 +5,27 @@ const root = @import("root.zig");
 const alloc = root.alloc;
 const util = root.util;
 
+const plthook = @import("plthook");
+
+const nix = if (builtin.os.tag != .windows) @import("nix/hooks.zig");
+const windows = if (builtin.os.tag == .windows) @import("windows/hooks.zig");
+
 const os_char = util.os_char;
 
 const panicWindowsError = @import("windows/util.zig").panicWindowsError;
 
 comptime {
     _ = switch (builtin.os.tag) {
-        .windows => @import("windows/hooks.zig"),
-        else => @import("nix/hooks.zig"),
+        .windows => windows,
+        else => nix,
     };
 }
 
 pub var defaultBootConfig: util.file_identity.FileIdentity = undefined;
 
-/// The returned buffer is **not** allocated using `util.alloc`.
-export fn initDefaultBootConfigPath() void {
+fn hookBootConfigCommon() ?[*:0]const os_char {
+    const boot_config_override = root.config.boot_config_override orelse return null;
+
     const path = switch (builtin.os.tag) {
         .macos => blk: {
             const program_path = util.paths.programPath();
@@ -84,6 +90,49 @@ export fn initDefaultBootConfigPath() void {
             e,
         });
     };
+
+    const access = switch (builtin.os.tag) {
+        .windows => std.fs.Dir.accessW,
+        else => std.fs.Dir.accessZ,
+    };
+    access(std.fs.cwd(), boot_config_override, .{}) catch |e| {
+        std.debug.panic("Boot config override is inaccessible: {}", .{e});
+    };
+
+    return boot_config_override;
+}
+
+fn hookBootConfigWindows(module: std.os.windows.HMODULE) callconv(.c) void {
+    _ = hookBootConfigCommon() orelse return;
+
+    const iat_hook = @cImport(@cInclude("windows/hook.h")).iat_hook;
+
+    if (iat_hook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.CreateFileW), @constCast(&windows.createFileWHook)) == 0) {
+        root.logger.err("Failed to hook CreateFileW. Might be unable to override boot config.", .{});
+    }
+    if (iat_hook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook)) == 0) {
+        root.logger.err("Failed to hook CreateFileA. Might be unable to override boot config.", .{});
+    }
+}
+
+fn hookBootConfigNix(hook: *plthook.c.plthook_t) callconv(.c) void {
+    _ = hookBootConfigCommon() orelse return;
+
+    if (builtin.os.tag == .linux) {
+        if (plthook.c.plthook_replace(hook, "fopen64", @constCast(&nix.fopen64Hook), null) != 0) {
+            root.logger.err("Failed to hook fopen64. Might be unable to override boot config. Error: {s}", .{plthook.c.plthook_error()});
+        }
+    }
+    if (plthook.c.plthook_replace(hook, "fopen", @constCast(&nix.fopenHook), null) != 0) {
+        root.logger.err("Failed to hook fopen. Might be unable to override boot config. Error: {s}", .{plthook.c.plthook_error()});
+    }
+}
+
+comptime {
+    @export(&switch (builtin.os.tag) {
+        .windows => hookBootConfigWindows,
+        else => hookBootConfigNix,
+    }, .{ .name = "hookBootConfig" });
 }
 
 fn captureMonoPath(handle: ?*anyopaque) void {
@@ -169,8 +218,12 @@ export fn dlsym_hook(handle: Module, name_ptr: [*:0]const u8) ?*anyopaque {
         }
     }
 
-    return switch (builtin.os.tag) {
-        .windows => std.os.windows.kernel32.GetProcAddress(handle, name),
-        else => std.c.dlsym(handle, name),
-    };
+    switch (builtin.os.tag) {
+        .windows => {
+            if (std.os.windows.kernel32.GetProcAddress(handle, name)) |ptr| return ptr;
+
+            return @import("windows/proxy.zig").proxyGetProcAddress(handle, name);
+        },
+        else => return std.c.dlsym(handle, name),
+    }
 }

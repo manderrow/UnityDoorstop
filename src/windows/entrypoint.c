@@ -56,18 +56,7 @@ void inject(DoorstopPaths const *paths) {
 
     HOOK_SYS(target_module, GetProcAddress, dlsym_hook);
     HOOK_SYS(target_module, CloseHandle, close_handle_hook);
-    if (config.boot_config_override) {
-        if (file_exists(config.boot_config_override)) {
-            initDefaultBootConfigPath();
-
-            HOOK_SYS(target_module, CreateFileW, create_file_hook);
-            HOOK_SYS(target_module, CreateFileA, create_file_hook_narrow);
-        } else {
-            log_err("The boot.config file won't be overriden because the "
-                    "provided one does not exist: %" Ts,
-                    config.boot_config_override);
-        }
-    }
+    hookBootConfig(target_module);
 
 #undef HOOK_SYS
 
@@ -79,10 +68,14 @@ void inject(DoorstopPaths const *paths) {
     }
 }
 
+extern HMODULE doorstop_module;
+
 BOOL WINAPI DllEntry(HINSTANCE hInstDll, DWORD reasonForDllLoad,
                      LPVOID reserved) {
     if (IS_TEST)
         return TRUE;
+
+    doorstop_module = hInstDll;
 
     if (reasonForDllLoad == DLL_PROCESS_DETACH)
         SetEnvironmentVariableW(L"DOORSTOP_DISABLE", NULL);

@@ -1,8 +1,9 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-const alloc = @import("../root.zig").alloc;
-const util = @import("../util.zig");
+const root = @import("../root.zig");
+const alloc = root.alloc;
+const util = root.util;
 
 const c_bool = util.c_bool;
 const os_char = util.os_char;

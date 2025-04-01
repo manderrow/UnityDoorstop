@@ -108,7 +108,7 @@ pub fn getFileIdentity(dir: ?Handle, path: [:0]const os_char) !FileIdentity {
 }
 
 // some extensions to Zig's Windows APIs
-const windows = struct {
+const windows = if (builtin.os.tag == .windows) struct {
     pub extern "kernel32" fn GetFileInformationByHandleEx(
         in_hFile: std.os.windows.HANDLE,
         in_FileInformationClass: std.os.windows.FILE_INFO_BY_HANDLE_CLASS,
