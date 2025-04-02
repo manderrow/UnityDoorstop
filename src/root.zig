@@ -15,6 +15,7 @@ pub const alloc = switch (builtin.mode) {
 pub const config = &@import("Config.zig").instance;
 pub const entrypoint = @import("entrypoint.zig");
 pub const hooks = @import("hooks.zig");
+pub const runtimes = @import("runtimes.zig");
 const logging = @import("util/logging.zig");
 pub const util = @import("util.zig");
 
@@ -29,7 +30,7 @@ comptime {
     _ = config;
     _ = entrypoint;
     _ = hooks;
-    _ = @import("runtimes.zig");
+    _ = runtimes;
     _ = util;
     _ = logging;
 }

@@ -63,7 +63,7 @@ comptime {
 }
 
 pub const windows = struct {
-    pub export var doorstop_module: ?std.os.windows.HMODULE = null;
+    pub var doorstop_module: ?std.os.windows.HMODULE = null;
 
     const LoadReason = enum(std.os.windows.DWORD) {
         PROCESS_DETACH = 0,

@@ -30,7 +30,7 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
         .macos => blk: {
             const program_path = util.paths.programPath();
             defer util.alloc.free(program_path);
-            const app_folder = util.paths.getFolderNameRef(util.paths.getFolderNameRef(program_path));
+            const app_folder = util.paths.getFolderNameRef(u8, util.paths.getFolderNameRef(u8, program_path));
 
             break :blk std.fmt.allocPrintZ(
                 alloc,
@@ -43,7 +43,7 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
             defer util.alloc.free(working_dir);
             const program_path = util.paths.programPath();
             defer util.alloc.free(program_path);
-            const file_name = util.paths.getFileNameRef(program_path, false);
+            const file_name = util.paths.getFileNameRef(os_char, program_path, false);
 
             const suffix_str = "_Data" ++ std.fs.path.sep_str ++ "boot.config";
             const suffix = switch (builtin.os.tag) {
@@ -72,7 +72,7 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
             defer util.alloc.free(working_dir);
             const program_path = util.paths.programPath();
             defer util.alloc.free(program_path);
-            const file_name = util.paths.getFileNameRef(program_path, false);
+            const file_name = util.paths.getFileNameRef(u8, program_path, false);
 
             break :blk std.fmt.allocPrintZ(
                 alloc,
@@ -174,7 +174,7 @@ pub fn installHooksNix() callconv(.c) void {
         } else {
             const mono_handle = plthook_ext.macos.plthook_handle_by_filename("libmono");
             if (mono_handle) |handle| {
-                bootstrap.load_mono_funcs(handle);
+                runtimes.mono.load(handle);
             }
         }
     }
@@ -189,30 +189,15 @@ fn captureMonoPath(handle: ?*anyopaque) void {
             @import("windows/util.zig").SetEnvironmentVariable(name, result.result);
         },
         else => {
-            const c = struct {
-                extern "c" fn setenv(name: [*:0]const u8, value: [*:0]const u8, overwrite: c_int) c_int;
-            };
-
-            const rc = c.setenv(name, result.result, 1);
-            switch (std.posix.errno(rc)) {
-                .SUCCESS => {},
-                .NOMEM => @panic("Out of memory"),
-                else => |err| {
-                    // INVAL is technically a possible error code from setenv, but we
-                    // know the key is valid
-                    std.debug.panic("unexpected errno: {d}\n", .{@intFromEnum(err)});
-                },
-            }
+            @import("nix/util.zig").setenv(name, result.result, true);
         },
     }
 }
 
 var initialized = false;
 
-const Module = if (builtin.os.tag == .windows) std.os.windows.HMODULE else ?*anyopaque;
-
 fn redirect_init(
-    handle: Module,
+    handle: util.Module(false),
     name: [:0]const u8,
     comptime init_name: []const u8,
     comptime init_func: anytype,
@@ -230,7 +215,10 @@ fn redirect_init(
                 // resolving their location.
                 // However, using handle seems to cause issues on some distros, so we pass
                 // the resolved symbol instead.
-                captureMonoPath(std.c.dlsym(handle, name));
+                captureMonoPath(switch (builtin.os.tag) {
+                    .windows => handle,
+                    else => std.c.dlsym(handle, name),
+                });
             }
             init_func(handle);
             root.logger.debug("Loaded all runtime functions", .{});
@@ -240,9 +228,10 @@ fn redirect_init(
     return null;
 }
 
-const bootstrap = @cImport(@cInclude("bootstrap.h"));
+const bootstrap = @import("bootstrap.zig");
+const runtimes = @import("runtimes.zig");
 
-fn dlsym_hook(handle: Module, name_ptr: [*:0]const u8) callconv(if (builtin.os.tag == .windows) .winapi else .c) ?*anyopaque {
+fn dlsym_hook(handle: util.Module(false), name_ptr: [*:0]const u8) callconv(if (builtin.os.tag == .windows) .winapi else .c) ?*anyopaque {
     const name = std.mem.span(name_ptr);
 
     if (builtin.mode == .Debug) {
@@ -250,11 +239,11 @@ fn dlsym_hook(handle: Module, name_ptr: [*:0]const u8) callconv(if (builtin.os.t
     }
 
     inline for (.{
-        .{ "il2cpp_init", bootstrap.load_il2cpp_funcs, &bootstrap.init_il2cpp, false },
-        .{ "mono_jit_init_version", bootstrap.load_mono_funcs, &bootstrap.init_mono, true },
-        .{ "mono_image_open_from_data_with_name", bootstrap.load_mono_funcs, &bootstrap.hook_mono_image_open_from_data_with_name, true },
-        .{ "mono_jit_parse_options", bootstrap.load_mono_funcs, &bootstrap.hook_mono_jit_parse_options, true },
-        .{ "mono_debug_init", bootstrap.load_mono_funcs, &bootstrap.hook_mono_debug_init, true },
+        .{ "il2cpp_init", runtimes.il2cpp.load, &bootstrap.init_il2cpp, false },
+        .{ "mono_jit_init_version", runtimes.mono.load, &bootstrap.init_mono, true },
+        .{ "mono_image_open_from_data_with_name", runtimes.mono.load, &bootstrap.hook_mono_image_open_from_data_with_name, true },
+        .{ "mono_jit_parse_options", runtimes.mono.load, &bootstrap.hook_mono_jit_parse_options, true },
+        .{ "mono_debug_init", runtimes.mono.load, &bootstrap.hook_mono_debug_init, true },
     }) |args| {
         if (redirect_init(handle, name, args[0], args[1], args[2], args[3])) |ptr| {
             return ptr;

@@ -8,7 +8,7 @@ const os_char = root.util.os_char;
 var actual_dll: ?std.os.windows.HMODULE = null;
 
 pub fn loadProxy(module_path: [*:0]const os_char) void {
-    const module_name = root.util.paths.getFileName(std.mem.span(module_path), true);
+    const module_name = root.util.paths.getFileName(os_char, std.mem.span(module_path), true);
 
     const proxy_name = root.util.osStrLiteral("winhttp.dll");
     if (module_name.len != proxy_name.len) return;

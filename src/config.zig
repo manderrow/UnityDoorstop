@@ -88,7 +88,7 @@ fn getEnvBoolOs(key: EnvKey) bool {
     }, text);
 }
 
-inline fn getEnvStrRef(comptime key: []const u8) ?[:0]const os_char {
+pub inline fn getEnvStrRef(comptime key: []const u8) ?[:0]const os_char {
     switch (builtin.os.tag) {
         .windows => {
             const key_w = comptime std.unicode.utf8ToUtf16LeStringLiteral(key);
@@ -149,17 +149,9 @@ pub fn load(self: *@This()) void {
         .clr_runtime_coreclr_path = getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH"),
         .clr_corlib_dir = getEnvPath("DOORSTOP_CLR_CORLIB_DIR"),
     };
-
-    c.target_assembly = self.target_assembly orelse null;
-    c.mono_dll_search_path_override = self.mono_dll_search_path_override orelse null;
-    c.mono_debug_enabled = self.mono_debug_enabled;
-    c.mono_debug_suspend = self.mono_debug_suspend;
-    c.mono_debug_address = self.mono_debug_address orelse null;
-    c.clr_runtime_coreclr_path = self.clr_runtime_coreclr_path orelse null;
-    c.clr_corlib_dir = self.clr_corlib_dir orelse null;
 }
 
-// not used right now. Export if we want to use it in the future.
+// not used right now.
 fn deinit(self: *@This()) void {
     freeNonNull(self.mono_debug_address);
     freeNonNull(self.mono_dll_search_path_override);
@@ -168,19 +160,5 @@ fn deinit(self: *@This()) void {
     freeNonNull(self.clr_runtime_coreclr_path);
     freeNonNull(self.clr_corlib_dir);
 
-    self.* = undefined;
-}
-
-const c = struct {
-    export var target_assembly: ?[*:0]const os_char = null;
-    export var mono_dll_search_path_override: ?[*:0]const os_char = null;
-    export var mono_debug_enabled: bool = false;
-    export var mono_debug_suspend: bool = false;
-    export var mono_debug_address: ?[*:0]const os_char = null;
-    export var clr_runtime_coreclr_path: ?[*:0]const os_char = null;
-    export var clr_corlib_dir: ?[*:0]const os_char = null;
-};
-
-comptime {
-    _ = c;
+    self.* = .{};
 }

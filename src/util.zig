@@ -8,10 +8,7 @@ comptime {
     _ = paths;
 }
 
-/// The allocator used by any C-export APIs, and any APIs marked as such.
-// TODO: replace with @import("root.zig").alloc
-//       This will require widespread changes in the C codebase.
-pub const alloc = std.heap.raw_c_allocator;
+pub const alloc = @import("root.zig").alloc;
 
 pub const os_char = if (builtin.os.tag == .windows) std.os.windows.WCHAR else u8;
 
@@ -20,6 +17,10 @@ pub const c_bool = enum(c_int) {
     true = 1,
     _,
 };
+
+pub fn Module(comptime @"const": bool) type {
+    return if (builtin.os.tag == .windows) std.os.windows.HMODULE else if (@"const") *const anyopaque else *anyopaque;
+}
 
 pub fn osStrLiteral(comptime string: []const u8) [:0]const os_char {
     return comptime switch (builtin.os.tag) {
@@ -31,8 +32,6 @@ pub fn osStrLiteral(comptime string: []const u8) [:0]const os_char {
 pub fn empty(comptime T: type) *[0:0]T {
     return @constCast(&[_:0]T{});
 }
-
-export const IS_TEST = builtin.is_test;
 
 pub const FmtAddress = struct {
     addr: usize,
@@ -55,41 +54,64 @@ pub fn fmtAddress(ptr: anytype) FmtAddress {
     return .{ .addr = @intFromPtr(ptr) };
 }
 
-export fn malloc_custom(size: usize) ?[*]align(@alignOf(std.c.max_align_t)) u8 {
-    return (alloc.alignedAlloc(u8, @alignOf(std.c.max_align_t), size) catch return null).ptr;
+pub const FmtString = struct {
+    str: [:0]const os_char,
+
+    pub fn format(
+        self: @This(),
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        if (builtin.os.tag == .windows) {
+            return std.unicode.fmtUtf16Le(self.str).format(fmt, options, writer);
+        } else {
+            if (comptime fmt.len == 0 or std.mem.eql(u8, fmt, "s")) {
+                return writer.writeAll(self.str);
+            } else {
+                @compileError("unknown format string: '" ++ fmt ++ "'");
+            }
+        }
+    }
+};
+
+pub fn fmtString(str: [:0]const os_char) FmtString {
+    return .{ .str = str };
 }
 
-export fn calloc_custom(num: usize, size: usize) ?[*]align(@alignOf(std.c.max_align_t)) u8 {
-    const buf = alloc.alignedAlloc(u8, @alignOf(std.c.max_align_t), size * num) catch return null;
-    @memset(buf, 0);
-    return buf.ptr;
-}
+pub fn narrow(str: [:0]const os_char) struct {
+    str: [:0]const u8,
 
-export fn free_custom(ptr: [*]u8) void {
-    std.c.free(ptr);
-}
-
-export fn narrow(str: [*:0]const os_char) [*:0]u8 {
+    pub fn deinit(self: @This()) void {
+        if (builtin.os.tag == .windows) {
+            alloc.free(@constCast(self.str));
+        }
+    }
+} {
     if (builtin.os.tag == .windows) {
-        return std.unicode.wtf16LeToWtf8AllocZ(alloc, std.mem.span(str)) catch |e| switch (e) {
+        return .{ .str = std.unicode.wtf16LeToWtf8AllocZ(alloc, str) catch |e| switch (e) {
             error.OutOfMemory => @panic("Out of memory"),
-        };
+        } };
     } else {
-        return alloc.dupeZ(u8, std.mem.span(str)) catch |e| switch (e) {
-            error.OutOfMemory => @panic("Out of memory"),
-        };
+        return .{ .str = str };
     }
 }
 
-export fn widen(str: [*:0]const u8) [*:0]os_char {
+pub fn widen(str: [:0]const u8) struct {
+    str: [:0]const os_char,
+
+    pub fn deinit(self: @This()) void {
+        if (builtin.os.tag == .windows) {
+            alloc.free(@constCast(self.str));
+        }
+    }
+} {
     if (builtin.os.tag == .windows) {
-        return std.unicode.wtf8ToWtf16LeAllocZ(alloc, std.mem.span(str)) catch |e| switch (e) {
+        return .{ .str = std.unicode.wtf8ToWtf16LeAllocZ(alloc, str) catch |e| switch (e) {
             error.OutOfMemory => @panic("Out of memory"),
             error.InvalidWtf8 => @panic("Invalid WTF-8"),
-        };
+        } };
     } else {
-        return alloc.dupeZ(u8, std.mem.span(str)) catch |e| switch (e) {
-            error.OutOfMemory => @panic("Out of memory"),
-        };
+        return .{ .str = str };
     }
 }

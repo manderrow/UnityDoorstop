@@ -24,16 +24,6 @@ pub fn build(b: *std.Build) !void {
         .strip = strip,
     });
 
-    if (target.result.os.tag != .windows) {
-        lib_mod.addImport("plthook", plthook_dep.module("plthook"));
-    }
-
-    var c_source_files = std.ArrayListUnmanaged([]const u8){};
-    try c_source_files.appendSlice(b.allocator, &.{
-        "bootstrap.c",
-        "util/logging.c",
-    });
-
     const lib = b.addLibrary(.{
         .linkage = .dynamic,
         .name = "UnityDoorstop",
@@ -42,22 +32,14 @@ pub fn build(b: *std.Build) !void {
 
     switch (target.result.os.tag) {
         .windows => {
-            try c_source_files.appendSlice(b.allocator, &.{
-                "windows/wincrt.c",
-            });
-
             try lib_mod.c_macros.append(b.allocator, "-DUNICODE");
 
             lib.entry = .{ .symbol_name = "DllEntry" };
         },
-        else => {},
+        else => {
+            lib_mod.addImport("plthook", plthook_dep.module("plthook"));
+        },
     }
-
-    lib_mod.addCSourceFiles(.{
-        .root = b.path("src"),
-        .files = c_source_files.items,
-        .flags = &.{ "-Wall", "-Werror" },
-    });
 
     lib_mod.addIncludePath(b.path("src"));
 

@@ -5,14 +5,6 @@ const alloc = @import("../root.zig").alloc;
 
 pub const logger = std.log.scoped(.doorstop);
 
-export fn lockStdErr() void {
-    std.debug.lockStdErr();
-}
-
-export fn unlockStdErr() void {
-    std.debug.unlockStdErr();
-}
-
 pub fn log(
     comptime message_level: std.log.Level,
     comptime scope: @TypeOf(.enum_literal),

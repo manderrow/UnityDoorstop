@@ -10,7 +10,7 @@ const os_char = util.os_char;
 
 const panicWindowsError = @import("../windows/util.zig").panicWindowsError;
 
-export fn file_exists(file: [*:0]const os_char) bool {
+pub fn file_exists(file: [*:0]const os_char) bool {
     if (builtin.os.tag == .windows) {
         const attrs = std.os.windows.GetFileAttributesW(file) catch return false;
         return attrs & std.os.windows.FILE_ATTRIBUTE_DIRECTORY == 0;
@@ -20,7 +20,7 @@ export fn file_exists(file: [*:0]const os_char) bool {
     }
 }
 
-export fn folder_exists(file: [*:0]const os_char) bool {
+pub fn folder_exists(file: [*:0]const os_char) bool {
     if (builtin.os.tag == .windows) {
         const attrs = std.os.windows.GetFileAttributesW(file) catch return false;
         return attrs & std.os.windows.FILE_ATTRIBUTE_DIRECTORY != 0;
@@ -31,7 +31,7 @@ export fn folder_exists(file: [*:0]const os_char) bool {
 }
 
 pub fn getModulePath(
-    module: if (builtin.os.tag == .windows) ?std.os.windows.HMODULE else ?*const anyopaque,
+    module: ?util.Module(true),
 ) ?struct {
     result: [:0]const os_char,
     alloc_len: if (builtin.os.tag == .windows) usize else void,
@@ -80,7 +80,7 @@ pub fn getModulePath(
     }
 }
 
-export fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
+fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
     if (builtin.os.tag == .windows) {
         // According to official docs, in this case, `needed` includes the null-terminator...
         const needed = std.os.windows.kernel32.GetFullPathNameW(
@@ -122,14 +122,6 @@ pub fn getWorkingDir() [:0]os_char {
     return toOsString(slice);
 }
 
-fn getWorkingDirC() callconv(.c) [*:0]os_char {
-    return getWorkingDir();
-}
-
-comptime {
-    @export(&getWorkingDirC, .{ .name = "get_working_dir" });
-}
-
 pub fn programPath() [:0]os_char {
     if (builtin.os.tag == .windows) {
         const buf = getModulePath(null).?;
@@ -141,15 +133,7 @@ pub fn programPath() [:0]os_char {
     }
 }
 
-fn programPathC() callconv(.c) [*:0]os_char {
-    return programPath();
-}
-
-comptime {
-    @export(&programPathC, .{ .name = "program_path" });
-}
-
-fn splitPath(path: []const os_char) struct {
+fn splitPath(comptime Char: type, path: []const Char) struct {
     ext: usize,
     parent: usize,
 } {
@@ -172,39 +156,23 @@ fn splitPath(path: []const os_char) struct {
     }
 }
 
-pub fn getFolderNameRef(path: []const os_char) []const os_char {
-    const parts = splitPath(path);
+pub fn getFolderNameRef(comptime Char: type, path: []const Char) []const Char {
+    const parts = splitPath(Char, path);
     return path[0 .. @max(parts.parent, 1) - 1];
 }
 
-pub fn getFolderName(path: []const os_char) [:0]os_char {
-    return util.alloc.dupeZ(os_char, getFolderNameRef(path)) catch @panic("Out of memory");
+pub fn getFolderName(comptime Char: type, path: []const Char) [:0]Char {
+    return util.alloc.dupeZ(Char, getFolderNameRef(Char, path)) catch @panic("Out of memory");
 }
 
-fn getFolderNameC(path: [*:0]const os_char) callconv(.c) [*:0]os_char {
-    return getFolderName(std.mem.span(path));
-}
-
-comptime {
-    @export(&getFolderNameC, .{ .name = "get_folder_name" });
-}
-
-pub fn getFileNameRef(path: []const os_char, with_ext: bool) []const os_char {
-    const parts = splitPath(path);
+pub fn getFileNameRef(comptime Char: type, path: []const Char, with_ext: bool) []const Char {
+    const parts = splitPath(Char, path);
     const end = if (with_ext) path.len else parts.ext;
     return path[parts.parent..end];
 }
 
-pub fn getFileName(path: []const os_char, with_ext: bool) [:0]os_char {
-    return util.alloc.dupeZ(os_char, getFileNameRef(path, with_ext)) catch @panic("Out of memory");
-}
-
-fn getFileNameC(path: [*:0]const os_char, with_ext: c_bool) callconv(.c) [*:0]os_char {
-    return getFileName(std.mem.span(path), with_ext != .false);
-}
-
-comptime {
-    @export(&getFileNameC, .{ .name = "get_file_name" });
+pub fn getFileName(comptime Char: type, path: []const Char, with_ext: bool) [:0]Char {
+    return util.alloc.dupeZ(Char, getFileNameRef(Char, path, with_ext)) catch @panic("Out of memory");
 }
 
 fn toOsString(buf: []const u8) [:0]os_char {
@@ -220,16 +188,16 @@ fn toOsString(buf: []const u8) [:0]os_char {
 }
 
 test "get_folder_name" {
-    try std.testing.expectEqualSlices(os_char, "/foo/bar", getFolderName("/foo/bar/baz"));
-    try std.testing.expectEqualSlices(os_char, "/foo/bar", getFolderName("/foo/bar/baz.txt"));
-    try std.testing.expectEqualSlices(os_char, "", getFolderName("baz"));
-    try std.testing.expectEqualSlices(os_char, "", getFolderName("baz.txt"));
+    try std.testing.expectEqualStrings("/foo/bar", getFolderName(u8, "/foo/bar/baz"));
+    try std.testing.expectEqualStrings("/foo/bar", getFolderName(u8, "/foo/bar/baz.txt"));
+    try std.testing.expectEqualStrings("", getFolderName(u8, "baz"));
+    try std.testing.expectEqualStrings("", getFolderName(u8, "baz.txt"));
 }
 
 test "get_file_name" {
-    try std.testing.expectEqualSlices(os_char, "baz", getFileName("/foo/bar/baz", true));
-    try std.testing.expectEqualSlices(os_char, "baz.txt", getFileName("/foo/bar/baz.txt", true));
-    try std.testing.expectEqualSlices(os_char, "baz", getFileName("/foo/bar/baz", false));
-    try std.testing.expectEqualSlices(os_char, "baz", getFileName("/foo/bar/baz.txt", false));
-    try std.testing.expectEqualSlices(os_char, "baz.txt", getFileName("baz.txt", true));
+    try std.testing.expectEqualStrings("baz", getFileName(u8, "/foo/bar/baz", true));
+    try std.testing.expectEqualStrings("baz.txt", getFileName(u8, "/foo/bar/baz.txt", true));
+    try std.testing.expectEqualStrings("baz", getFileName(u8, "/foo/bar/baz", false));
+    try std.testing.expectEqualStrings("baz", getFileName(u8, "/foo/bar/baz.txt", false));
+    try std.testing.expectEqualStrings("baz.txt", getFileName(u8, "baz.txt", true));
 }
