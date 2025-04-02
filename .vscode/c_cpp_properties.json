@@ -1,9 +1,0 @@
-{
-	"configurations": [
-		{
-			"name": "Release",
-			"defines": ["UNICODE"]
-		}
-	],
-	"version": 4
-}
