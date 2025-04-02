@@ -34,6 +34,27 @@ pub fn empty(comptime T: type) *[0:0]T {
 
 export const IS_TEST = builtin.is_test;
 
+pub const FmtAddress = struct {
+    addr: usize,
+
+    pub fn format(
+        self: @This(),
+        comptime fmt: []const u8,
+        _: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        if (fmt.len == 0) {
+            return writer.print(std.fmt.comptimePrint("0x{{?x:0>{}}}", .{@sizeOf(*anyopaque) * 2}), .{self.addr});
+        } else {
+            @compileError("unknown format string: '" ++ fmt ++ "'");
+        }
+    }
+};
+
+pub fn fmtAddress(ptr: anytype) FmtAddress {
+    return .{ .addr = @intFromPtr(ptr) };
+}
+
 export fn malloc_custom(size: usize) ?[*]align(@alignOf(std.c.max_align_t)) u8 {
     return (alloc.alignedAlloc(u8, @alignOf(std.c.max_align_t), size) catch return null).ptr;
 }

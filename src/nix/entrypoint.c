@@ -15,8 +15,6 @@
 #include "./plthook/plthook_ext.h"
 #include "./plthook/vendor/plthook.h"
 
-void *dlsym_hook(void *handle, const char *name);
-
 int fclose_hook(FILE *stream);
 
 int dup2_hook(int oldfd, int newfd);
@@ -45,11 +43,7 @@ __attribute__((constructor)) void doorstop_ctor() {
         return;
     }
 
-    if (plthook_replace(hook, "dlsym", &dlsym_hook, NULL) != 0)
-        log_warn("Failed to hook dlsym, ignoring it. Error: %s",
-                 plthook_error());
-
-    hookBootConfig(hook);
+    installHooks(hook);
 
     if (plthook_replace(hook, "fclose", &fclose_hook, NULL) != 0)
         log_warn("Failed to hook fclose, ignoring it. Error: %s",

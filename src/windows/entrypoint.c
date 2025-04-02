@@ -1,9 +1,7 @@
-#include "../bootstrap.h"
 #include "../config/config.h"
 #include "../crt.h"
 #include "../hooks.h"
 #include "../util/logging.h"
-#include "hook.h"
 #include "paths.h"
 #include "proxy/proxy.h"
 
@@ -54,9 +52,7 @@ void inject(DoorstopPaths const *paths) {
 
 #define HOOK_SYS(mod, from, to) ok &= iat_hook(mod, "kernel32.dll", &from, &to)
 
-    HOOK_SYS(target_module, GetProcAddress, dlsym_hook);
-    HOOK_SYS(target_module, CloseHandle, close_handle_hook);
-    hookBootConfig(target_module);
+    installHooks(target_module);
 
 #undef HOOK_SYS
 

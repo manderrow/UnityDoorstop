@@ -6,6 +6,7 @@ const alloc = root.alloc;
 const util = root.util;
 
 const plthook = @import("plthook");
+const iatHook = if (builtin.os.tag == .windows) @import("windows/iat_hook.zig").iatHook;
 
 const nix = if (builtin.os.tag != .windows) @import("nix/hooks.zig");
 const windows = if (builtin.os.tag == .windows) @import("windows/hooks.zig");
@@ -102,20 +103,29 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
     return boot_config_override;
 }
 
-fn hookBootConfigWindows(module: std.os.windows.HMODULE) callconv(.c) void {
+fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
+    iatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.GetProcAddress), @constCast(&dlsym_hook)) catch |e| {
+        root.logger.err("Failed to hook GetProcAddress. Error: {}", .{e});
+    };
+    iatHook(module, "kernel32.dll", @constCast(&windows.CloseHandle), @constCast(&windows.close_handle_hook)) catch |e| {
+        root.logger.err("Failed to hook CloseHandle. Error: {}", .{e});
+    };
+
     _ = hookBootConfigCommon() orelse return;
 
-    const iat_hook = @cImport(@cInclude("windows/hook.h")).iat_hook;
-
-    if (iat_hook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.CreateFileW), @constCast(&windows.createFileWHook)) == 0) {
-        root.logger.err("Failed to hook CreateFileW. Might be unable to override boot config.", .{});
-    }
-    if (iat_hook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook)) == 0) {
-        root.logger.err("Failed to hook CreateFileA. Might be unable to override boot config.", .{});
-    }
+    iatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.CreateFileW), @constCast(&windows.createFileWHook)) catch |e| {
+        root.logger.err("Failed to hook CreateFileW. Might be unable to override boot config. Error: {}", .{e});
+    };
+    iatHook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook)) catch |e| {
+        root.logger.err("Failed to hook CreateFileA. Might be unable to override boot config. Error: {}", .{e});
+    };
 }
 
-fn hookBootConfigNix(hook: *plthook.c.plthook_t) callconv(.c) void {
+fn installHooksNix(hook: *plthook.c.plthook_t) callconv(.c) void {
+    if (plthook.c.plthook_replace(hook, "dlsym", @constCast(&dlsym_hook), null) != 0) {
+        root.logger.err("Failed to hook dlsym. Initialization might be impossible. Error: {s}", .{plthook.c.plthook_error()});
+    }
+
     _ = hookBootConfigCommon() orelse return;
 
     if (builtin.os.tag == .linux) {
@@ -130,9 +140,9 @@ fn hookBootConfigNix(hook: *plthook.c.plthook_t) callconv(.c) void {
 
 comptime {
     @export(&switch (builtin.os.tag) {
-        .windows => hookBootConfigWindows,
-        else => hookBootConfigNix,
-    }, .{ .name = "hookBootConfig" });
+        .windows => installHooksWindows,
+        else => installHooksNix,
+    }, .{ .name = "installHooks" });
 }
 
 fn captureMonoPath(handle: ?*anyopaque) void {
@@ -199,11 +209,11 @@ fn redirect_init(
 
 const bootstrap = @cImport(@cInclude("bootstrap.h"));
 
-export fn dlsym_hook(handle: Module, name_ptr: [*:0]const u8) ?*anyopaque {
+fn dlsym_hook(handle: Module, name_ptr: [*:0]const u8) callconv(if (builtin.os.tag == .windows) .winapi else .c) ?*anyopaque {
     const name = std.mem.span(name_ptr);
 
     if (builtin.mode == .Debug) {
-        root.logger.debug(std.fmt.comptimePrint("dlsym(0x{{?x:0>{}}}, \"{{s}}\")", .{@sizeOf(*anyopaque) * 2}), .{ handle, name });
+        root.logger.debug("dlsym({}, \"{s}\")", .{ util.fmtAddress(handle), name });
     }
 
     inline for (.{

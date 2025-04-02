@@ -1,7 +1,7 @@
 #if _WIN32
-void hookBootConfig(HMODULE module);
+void installHooks(HMODULE module);
 #else
 #include "nix/plthook/vendor/plthook.h"
 
-void hookBootConfig(plthook_t *hook);
+void installHooks(plthook_t *hook);
 #endif

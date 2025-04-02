@@ -7,7 +7,10 @@ const os_char = root.util.os_char;
 
 extern var stdout_handle: ?std.os.windows.HANDLE;
 extern var stderr_handle: ?std.os.windows.HANDLE;
-export fn close_handle_hook(handle: std.os.windows.HANDLE) callconv(.winapi) root.util.c_bool {
+
+pub extern "kernel32" fn CloseHandle(handle: std.os.windows.HANDLE) callconv(.winapi) root.util.c_bool;
+
+pub fn close_handle_hook(handle: std.os.windows.HANDLE) callconv(.winapi) root.util.c_bool {
     if (handle == stdout_handle)
         return .true;
     return @enumFromInt(@intFromBool(std.os.windows.ntdll.NtClose(handle) == .SUCCESS));
