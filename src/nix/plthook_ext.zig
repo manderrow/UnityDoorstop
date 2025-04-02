@@ -4,14 +4,6 @@ const std = @import("std");
 const plthook = @import("plthook");
 const logger = @import("../util/logging.zig").logger;
 
-comptime {
-    switch (builtin.os.tag) {
-        .windows => {},
-        .macos => _ = macos,
-        else => {},
-    }
-}
-
 pub const macos = struct {
     fn get_image_by_filename(name_ptr: [*:0]const u8) ?struct { idx: u32, name: [:0]const u8 } {
         const name = std.mem.span(name_ptr);

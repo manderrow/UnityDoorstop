@@ -10,11 +10,9 @@ const plthook_ext = @import("nix/plthook_ext.zig");
 const iatHook = if (builtin.os.tag == .windows) @import("windows/iat_hook.zig").iatHook;
 
 const nix = if (builtin.os.tag != .windows) @import("nix/hooks.zig");
-const windows = if (builtin.os.tag == .windows) @import("windows/hooks.zig");
+pub const windows = if (builtin.os.tag == .windows) @import("windows/hooks.zig");
 
 const os_char = util.os_char;
-
-const panicWindowsError = @import("windows/util.zig").panicWindowsError;
 
 comptime {
     _ = switch (builtin.os.tag) {
@@ -126,7 +124,7 @@ fn tryIatHookUntyped(
     };
 }
 
-fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
+pub fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
     tryIatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.GetProcAddress), @constCast(&dlsym_hook), "GetProcAddress");
     tryIatHook(module, "kernel32.dll", @constCast(&windows.CloseHandle), @constCast(&windows.close_handle_hook), "CloseHandle");
 
@@ -182,21 +180,13 @@ pub fn installHooksNix() callconv(.c) void {
     }
 }
 
-comptime {
-    if (builtin.os.tag == .windows) {
-        @export(&installHooksWindows, .{ .name = "installHooks" });
-    }
-}
-
 fn captureMonoPath(handle: ?*anyopaque) void {
     const result = root.util.paths.getModulePath(@ptrCast(handle)).?;
     defer result.deinit();
     const name = "DOORSTOP_MONO_LIB_PATH";
     switch (builtin.os.tag) {
         .windows => {
-            if (std.os.windows.kernel32.SetEnvironmentVariableW(comptime std.unicode.utf8ToUtf16LeStringLiteral(name), result.result) == 0) {
-                panicWindowsError("SetEnvironmentVariableW");
-            }
+            @import("windows/util.zig").SetEnvironmentVariable(name, result.result);
         },
         else => {
             const c = struct {

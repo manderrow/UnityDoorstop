@@ -13,6 +13,7 @@ pub const alloc = switch (builtin.mode) {
 };
 
 pub const config = &@import("Config.zig").instance;
+pub const entrypoint = @import("entrypoint.zig");
 pub const hooks = @import("hooks.zig");
 const logging = @import("util/logging.zig");
 pub const util = @import("util.zig");
@@ -26,15 +27,9 @@ pub const std_options = std.Options{
 
 comptime {
     _ = config;
+    _ = entrypoint;
     _ = hooks;
     _ = @import("runtimes.zig");
     _ = util;
     _ = logging;
-    if (builtin.os.tag == .windows) {
-        _ = @import("windows/paths.zig");
-    }
-    if (builtin.os.tag != .windows) {
-        _ = @import("nix/entrypoint.zig");
-        _ = @import("nix/plthook_ext.zig");
-    }
 }

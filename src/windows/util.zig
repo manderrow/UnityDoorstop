@@ -8,3 +8,9 @@ pub fn panicWindowsError(func: []const u8) noreturn {
     // @tagName that would otherwise be used.
     std.debug.panic("{s} returned error code {}", .{ func, @intFromEnum(e) });
 }
+
+pub fn SetEnvironmentVariable(comptime key: []const u8, value: ?[*:0]const u16) void {
+    if (std.os.windows.kernel32.SetEnvironmentVariableW(std.unicode.utf8ToUtf16LeStringLiteral(key), value) == 0) {
+        panicWindowsError("SetEnvironmentVariableW");
+    }
+}

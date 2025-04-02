@@ -6,32 +6,39 @@ const alloc = root.alloc;
 const logger = root.logger;
 const os_char = root.util.os_char;
 
-const header = @cImport({
-    @cInclude("config/config.h");
-});
+/// Whether Doorstop is enabled.
+enabled: bool = false,
+
+/// Path to a managed assembly to invoke.
+target_assembly: ?[:0]const os_char = null,
+
+/// Path to use as the main DLL search path. If enabled, this folder
+/// takes precedence over the default Managed folder.
+mono_dll_search_path_override: ?[:0]const os_char = null,
+
+/// Whether to enable the mono debugger.
+mono_debug_enabled: bool = false,
+
+/// Whether to enable the debugger in suspended state.
+///
+/// If enabled, the runtime will force the game to wait until a debugger is
+/// connected.
+mono_debug_suspend: bool = false,
+
+/// Debug address to use for the mono debugger.
+mono_debug_address: ?[:0]const os_char = null,
+
+/// Path to the CoreCLR runtime library.
+clr_runtime_coreclr_path: ?[:0]const os_char = null,
+
+/// Path to the CoreCLR core libraries folder.
+clr_corlib_dir: ?[:0]const os_char = null,
 
 /// Path to a custom boot.config file to use. If specified, this file takes
 /// precedence over the default one in the game's Data folder.
 boot_config_override: ?[:0]const os_char = null,
 
-comptime c: *header.Config = &c_instance,
-
 pub var instance = @This(){};
-
-var c_instance = header.Config{
-    .enabled = false,
-    .mono_debug_enabled = false,
-    .mono_debug_suspend = false,
-    .mono_debug_address = null,
-    .target_assembly = null,
-    .mono_dll_search_path_override = null,
-    .clr_corlib_dir = null,
-    .clr_runtime_coreclr_path = null,
-};
-
-comptime {
-    @export(&c_instance, .{ .name = "config" });
-}
 
 fn freeNonNull(ptr: anytype) void {
     if (ptr) |ptr_non_null| {
@@ -124,36 +131,56 @@ fn checkEnvPath(key: []const u8, path: [:0]const os_char) void {
 }
 
 pub fn load(self: *@This()) void {
-    self.c.enabled = getEnvBool("DOORSTOP_ENABLED");
+    var enabled = getEnvBool("DOORSTOP_ENABLED");
     const ignore_disabled_env = getEnvBool("DOORSTOP_IGNORE_DISABLED_ENV");
-    if (self.c.enabled and !ignore_disabled_env and getEnvBool("DOORSTOP_DISABLE")) {
+    if (enabled and !ignore_disabled_env and getEnvBool("DOORSTOP_DISABLE")) {
         // This is sometimes useful with Steam games that break env var isolation.
         logger.debug("DOORSTOP_DISABLE is set! Disabling Doorstop!", .{});
-        self.c.enabled = false;
+        enabled = false;
     }
-    self.c.mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED");
-    self.c.mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND");
-    self.c.mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS") orelse null;
-    self.c.mono_dll_search_path_override = getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE") orelse null;
-    self.c.target_assembly = getEnvPath("DOORSTOP_TARGET_ASSEMBLY") orelse null;
-    if (self.c.target_assembly == null) {
-        @panic("DOORSTOP_TARGET_ASSEMBLY environment variable must be set");
-    }
-    self.boot_config_override = getEnvPath("DOORSTOP_BOOT_CONFIG_OVERRIDE");
-    self.c.clr_runtime_coreclr_path = getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH") orelse null;
-    self.c.clr_corlib_dir = getEnvPath("DOORSTOP_CLR_CORLIB_DIR") orelse null;
-}
+    self.* = .{
+        .enabled = enabled,
+        .mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED"),
+        .mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND"),
+        .mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS"),
+        .mono_dll_search_path_override = getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE"),
+        .target_assembly = getEnvPath("DOORSTOP_TARGET_ASSEMBLY") orelse @panic("DOORSTOP_TARGET_ASSEMBLY environment variable must be set"),
+        .boot_config_override = getEnvPath("DOORSTOP_BOOT_CONFIG_OVERRIDE"),
+        .clr_runtime_coreclr_path = getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH"),
+        .clr_corlib_dir = getEnvPath("DOORSTOP_CLR_CORLIB_DIR"),
+    };
 
-export fn load_config() void {
-    instance.load();
+    c.target_assembly = self.target_assembly orelse null;
+    c.mono_dll_search_path_override = self.mono_dll_search_path_override orelse null;
+    c.mono_debug_enabled = self.mono_debug_enabled;
+    c.mono_debug_suspend = self.mono_debug_suspend;
+    c.mono_debug_address = self.mono_debug_address orelse null;
+    c.clr_runtime_coreclr_path = self.clr_runtime_coreclr_path orelse null;
+    c.clr_corlib_dir = self.clr_corlib_dir orelse null;
 }
 
 // not used right now. Export if we want to use it in the future.
-fn cleanup_config() void {
-    freeNonNull(c_instance.mono_debug_address);
-    freeNonNull(c_instance.mono_dll_search_path_override);
-    alloc.free(std.mem.span(c_instance.target_assembly.?));
-    if (instance.boot_config_override) |ptr| alloc.free(ptr);
-    freeNonNull(c_instance.clr_runtime_coreclr_path);
-    freeNonNull(c_instance.clr_corlib_dir);
+fn deinit(self: *@This()) void {
+    freeNonNull(self.mono_debug_address);
+    freeNonNull(self.mono_dll_search_path_override);
+    alloc.free(std.mem.span(self.target_assembly.?));
+    if (self.boot_config_override) |ptr| alloc.free(ptr);
+    freeNonNull(self.clr_runtime_coreclr_path);
+    freeNonNull(self.clr_corlib_dir);
+
+    self.* = undefined;
+}
+
+const c = struct {
+    export var target_assembly: ?[*:0]const os_char = null;
+    export var mono_dll_search_path_override: ?[*:0]const os_char = null;
+    export var mono_debug_enabled: bool = false;
+    export var mono_debug_suspend: bool = false;
+    export var mono_debug_address: ?[*:0]const os_char = null;
+    export var clr_runtime_coreclr_path: ?[*:0]const os_char = null;
+    export var clr_corlib_dir: ?[*:0]const os_char = null;
+};
+
+comptime {
+    _ = c;
 }
