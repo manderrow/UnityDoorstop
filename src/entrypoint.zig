@@ -3,6 +3,21 @@ const std = @import("std");
 
 const root = @import("root.zig");
 
+comptime {
+    // export entrypoints
+    switch (builtin.os.tag) {
+        .windows => {
+            _ = windows;
+        },
+        else => {
+            @export(&[1]*const fn () callconv(.C) void{entrypoint}, .{
+                .section = if (builtin.os.tag == .macos) "__DATA,__mod_init_func" else ".init_array",
+                .name = "init_array",
+            });
+        },
+    }
+}
+
 pub fn entrypoint() callconv(.c) void {
     if (builtin.is_test)
         return;
@@ -45,20 +60,6 @@ pub fn entrypoint() callconv(.c) void {
     root.logger.info("Injected hooks", .{});
     if (builtin.os.tag == .windows) {
         @import("windows/util.zig").SetEnvironmentVariable("DOORSTOP_DISABLE", std.unicode.utf8ToUtf16LeStringLiteral("1"));
-    }
-}
-
-comptime {
-    switch (builtin.os.tag) {
-        .windows => {
-            _ = windows;
-        },
-        else => {
-            @export(&[1]*const fn () callconv(.C) void{entrypoint}, .{
-                .section = if (builtin.os.tag == .macos) "__DATA,__mod_init_func" else ".init_array",
-                .name = "init_array",
-            });
-        },
     }
 }
 

@@ -27,10 +27,6 @@ pub const std_options = std.Options{
 };
 
 comptime {
-    _ = config;
+    // ensure library entrypoints are exported
     _ = entrypoint;
-    _ = hooks;
-    _ = runtimes;
-    _ = util;
-    _ = logging;
 }

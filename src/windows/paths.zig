@@ -36,8 +36,8 @@ pub fn init() @This() {
 }
 
 pub fn deinit(self: *@This()) void {
-    util.alloc.free(std.mem.span(self.app_path));
-    util.alloc.free(std.mem.span(self.app_dir));
-    util.alloc.free(std.mem.span(self.working_dir));
+    alloc.free(std.mem.span(self.app_path));
+    alloc.free(std.mem.span(self.app_dir));
+    alloc.free(std.mem.span(self.working_dir));
     alloc.free(std.mem.span(self.doorstop_path));
 }

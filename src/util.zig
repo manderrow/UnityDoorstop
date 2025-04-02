@@ -4,11 +4,7 @@ const std = @import("std");
 pub const file_identity = @import("util/file_identity.zig");
 pub const paths = @import("util/paths.zig");
 
-comptime {
-    _ = paths;
-}
-
-pub const alloc = @import("root.zig").alloc;
+const alloc = @import("root.zig").alloc;
 
 pub const os_char = if (builtin.os.tag == .windows) std.os.windows.WCHAR else u8;
 

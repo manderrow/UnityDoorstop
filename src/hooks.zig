@@ -14,13 +14,6 @@ pub const windows = if (builtin.os.tag == .windows) @import("windows/hooks.zig")
 
 const os_char = util.os_char;
 
-comptime {
-    _ = switch (builtin.os.tag) {
-        .windows => windows,
-        else => nix,
-    };
-}
-
 pub var defaultBootConfig: util.file_identity.FileIdentity = undefined;
 
 fn hookBootConfigCommon() ?[*:0]const os_char {
@@ -29,7 +22,7 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
     const path = switch (builtin.os.tag) {
         .macos => blk: {
             const program_path = util.paths.programPath();
-            defer util.alloc.free(program_path);
+            defer alloc.free(program_path);
             const app_folder = util.paths.getFolderNameRef(u8, util.paths.getFolderNameRef(u8, program_path));
 
             break :blk std.fmt.allocPrintZ(
@@ -40,9 +33,9 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
         },
         .windows => blk: {
             const working_dir = util.paths.getWorkingDir();
-            defer util.alloc.free(working_dir);
+            defer alloc.free(working_dir);
             const program_path = util.paths.programPath();
-            defer util.alloc.free(program_path);
+            defer alloc.free(program_path);
             const file_name = util.paths.getFileNameRef(os_char, program_path, false);
 
             const suffix_str = "_Data" ++ std.fs.path.sep_str ++ "boot.config";
@@ -69,9 +62,9 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
         },
         else => blk: {
             const working_dir = util.paths.getWorkingDir();
-            defer util.alloc.free(working_dir);
+            defer alloc.free(working_dir);
             const program_path = util.paths.programPath();
-            defer util.alloc.free(program_path);
+            defer alloc.free(program_path);
             const file_name = util.paths.getFileNameRef(u8, program_path, false);
 
             break :blk std.fmt.allocPrintZ(

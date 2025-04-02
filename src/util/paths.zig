@@ -92,7 +92,7 @@ fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
         if (needed == 0) {
             panicWindowsError("GetFullPathNameW");
         }
-        const res = util.alloc.alloc(os_char, @intCast(needed)) catch @panic("Out of memory");
+        const res = alloc.alloc(os_char, @intCast(needed)) catch @panic("Out of memory");
         // but in this case `len` does not include the null-terminator.
         const len = std.os.windows.kernel32.GetFullPathNameW(
             path,
@@ -126,7 +126,7 @@ pub fn programPath() [:0]os_char {
     if (builtin.os.tag == .windows) {
         const buf = getModulePath(null).?;
         defer buf.deinit();
-        return util.alloc.dupeZ(os_char, buf.result) catch @panic("Out of memory");
+        return alloc.dupeZ(os_char, buf.result) catch @panic("Out of memory");
     } else {
         var buf: [std.fs.max_path_bytes]u8 = undefined;
         return toOsString(std.fs.selfExePath(&buf) catch |e| std.debug.panic("Failed to determine program path: {}", .{e}));
@@ -162,7 +162,7 @@ pub fn getFolderNameRef(comptime Char: type, path: []const Char) []const Char {
 }
 
 pub fn getFolderName(comptime Char: type, path: []const Char) [:0]Char {
-    return util.alloc.dupeZ(Char, getFolderNameRef(Char, path)) catch @panic("Out of memory");
+    return alloc.dupeZ(Char, getFolderNameRef(Char, path)) catch @panic("Out of memory");
 }
 
 pub fn getFileNameRef(comptime Char: type, path: []const Char, with_ext: bool) []const Char {
@@ -172,18 +172,18 @@ pub fn getFileNameRef(comptime Char: type, path: []const Char, with_ext: bool) [
 }
 
 pub fn getFileName(comptime Char: type, path: []const Char, with_ext: bool) [:0]Char {
-    return util.alloc.dupeZ(Char, getFileNameRef(Char, path, with_ext)) catch @panic("Out of memory");
+    return alloc.dupeZ(Char, getFileNameRef(Char, path, with_ext)) catch @panic("Out of memory");
 }
 
 fn toOsString(buf: []const u8) [:0]os_char {
     if (builtin.os.tag == .windows) {
-        return std.unicode.wtf8ToWtf16LeAllocZ(util.alloc, buf) catch |e| switch (e) {
+        return std.unicode.wtf8ToWtf16LeAllocZ(alloc, buf) catch |e| switch (e) {
             error.OutOfMemory => @panic("Out of memory"),
             // selfExePath and realpath guarantee returning valid WTF-8 on Windows
             error.InvalidWtf8 => unreachable,
         };
     } else {
-        return util.alloc.dupeZ(u8, buf) catch @panic("Out of memory");
+        return alloc.dupeZ(u8, buf) catch @panic("Out of memory");
     }
 }
 
