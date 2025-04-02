@@ -71,10 +71,10 @@ pub fn getModulePath(
         var info: dlfcn.Dl_info = undefined;
 
         if (dlfcn.dladdr(module, &info) == 0) {
-            @panic("Could not locate module");
+            return null;
         }
         return .{
-            .result = std.mem.span(@as([*:0]const u8, info.dli_fname)),
+            .result = std.mem.span(@as(?[*:0]const u8, info.dli_fname).?),
             .alloc_len = {},
         };
     }
