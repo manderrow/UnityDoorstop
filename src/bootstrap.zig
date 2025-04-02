@@ -16,31 +16,20 @@ const coreclr = root.runtimes.coreclr;
 const il2cpp = root.runtimes.il2cpp;
 const mono = root.runtimes.mono;
 
-fn setenv(comptime key: [:0]const u8, value: [:0]const os_char) void {
-    switch (builtin.os.tag) {
-        .windows => {
-            @import("windows/util.zig").SetEnvironmentVariable(key, value);
-        },
-        else => {
-            @import("nix/util.zig").setenv(key, value, true);
-        },
-    }
-}
-
 fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
     if (std.process.hasEnvVarConstant("DOORSTOP_INITIALIZED")) {
         logger.debug("DOORSTOP_INITIALIZED is set! Skipping!", .{});
         return;
     }
-    setenv("DOORSTOP_INITIALIZED", root.util.osStrLiteral("TRUE"));
+    util.setEnv("DOORSTOP_INITIALIZED", root.util.osStrLiteral("TRUE"));
 
     mono.addrs.thread_set_main.?(mono.addrs.thread_current.?());
 
     const app_path = root.util.paths.programPath();
     defer alloc.free(app_path);
-    setenv("DOORSTOP_PROCESS_PATH", app_path);
+    util.setEnv("DOORSTOP_PROCESS_PATH", app_path);
 
-    setenv("DOORSTOP_INVOKE_DLL_PATH", config.target_assembly.?);
+    util.setEnv("DOORSTOP_INVOKE_DLL_PATH", config.target_assembly.?);
 
     if (mono.addrs.domain_set_config) |domain_set_config| {
         const config_path = std.mem.concatWithSentinel(alloc, os_char, &.{
@@ -69,7 +58,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
     mono.addrs.config_parse.?(null);
 
     logger.debug("Assembly dir: {s}", .{assembly_dir});
-    setenv("DOORSTOP_MANAGED_FOLDER_DIR", norm_assembly_dir.str);
+    util.setEnv("DOORSTOP_MANAGED_FOLDER_DIR", norm_assembly_dir.str);
 
     logger.debug("Opening assembly: {}", .{util.fmtString(config.target_assembly.?)});
 
@@ -154,7 +143,7 @@ pub fn init_mono(root_domain_name: [*:0]const u8, runtime_version: [*:0]const u8
     {
         const mono_search_path_w = util.widen(mono_search_path);
         defer mono_search_path_w.deinit();
-        setenv("DOORSTOP_DLL_SEARCH_DIRS", mono_search_path_w.str);
+        util.setEnv("DOORSTOP_DLL_SEARCH_DIRS", mono_search_path_w.str);
     }
 
     hook_mono_jit_parse_options(0, &[_][*:0]u8{});
@@ -208,45 +197,38 @@ fn il2cpp_doorstop_bootstrap() void {
 
     const target_dir = util.paths.getFolderName(os_char, config.target_assembly.?);
     defer alloc.free(target_dir);
-    const target_dir_n = util.narrow(target_dir);
-    defer target_dir_n.deinit();
     const target_name = util.paths.getFileName(os_char, config.target_assembly.?, false);
     defer alloc.free(target_name);
     const target_name_n = util.narrow(target_name);
     defer target_name_n.deinit();
 
-    const clr_corlib_dir_n = util.narrow(clr_corlib_dir);
-    defer clr_corlib_dir_n.deinit();
-
     const app_paths_env = std.mem.concatWithSentinel(
         alloc,
-        u8,
-        &.{ clr_corlib_dir_n.str, &.{std.fs.path.delimiter}, target_dir_n.str },
+        os_char,
+        &.{ clr_corlib_dir, &.{std.fs.path.delimiter}, target_dir },
         0,
     ) catch @panic("Out of memory");
     defer alloc.free(app_paths_env);
 
+    const app_paths_env_n = util.narrow(app_paths_env);
+    defer app_paths_env_n.deinit();
+
     logger.debug("App path: {}", .{util.fmtString(app_path)});
     logger.debug("Target dir: {}", .{util.fmtString(target_dir)});
     logger.debug("Target name: {}", .{util.fmtString(target_name)});
-    logger.debug("APP_PATHS: {s}", .{app_paths_env});
+    logger.debug("APP_PATHS: {s}", .{app_paths_env_n.str});
 
     const props = "APP_PATHS";
 
-    setenv("DOORSTOP_INITIALIZED", util.osStrLiteral("TRUE"));
-    setenv("DOORSTOP_INVOKE_DLL_PATH", config.target_assembly.?);
-    setenv("DOORSTOP_MANAGED_FOLDER_DIR", clr_corlib_dir);
-    setenv("DOORSTOP_PROCESS_PATH", app_path);
-
-    {
-        const app_paths_env_w = util.widen(app_paths_env);
-        defer app_paths_env_w.deinit();
-        setenv("DOORSTOP_DLL_SEARCH_DIRS", app_paths_env_w.str);
-    }
+    util.setEnv("DOORSTOP_INITIALIZED", util.osStrLiteral("TRUE"));
+    util.setEnv("DOORSTOP_INVOKE_DLL_PATH", config.target_assembly.?);
+    util.setEnv("DOORSTOP_MANAGED_FOLDER_DIR", clr_corlib_dir);
+    util.setEnv("DOORSTOP_PROCESS_PATH", app_path);
+    util.setEnv("DOORSTOP_DLL_SEARCH_DIRS", app_paths_env);
 
     var host: ?*anyopaque = null;
     var domain_id: u32 = 0;
-    var result = coreclr.addrs.initialize.?(app_path_n.str, "Doorstop Domain", 1, &.{props}, &.{app_paths_env}, &host, &domain_id);
+    var result = coreclr.addrs.initialize.?(app_path_n.str, "Doorstop Domain", 1, &.{props}, &.{app_paths_env_n.str}, &host, &domain_id);
     if (result != 0) {
         std.debug.panic("Failed to initialize CoreCLR: 0x{x:0>8}", .{result});
     }

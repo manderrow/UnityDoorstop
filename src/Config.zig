@@ -6,9 +6,6 @@ const alloc = root.alloc;
 const logger = root.logger;
 const os_char = root.util.os_char;
 
-/// Whether Doorstop is enabled.
-enabled: bool = false,
-
 /// Path to a managed assembly to invoke.
 target_assembly: ?[:0]const os_char = null,
 
@@ -130,16 +127,18 @@ fn checkEnvPath(key: []const u8, path: [:0]const os_char) void {
     }
 }
 
-pub fn load(self: *@This()) void {
-    var enabled = getEnvBool("DOORSTOP_ENABLED");
-    const ignore_disabled_env = getEnvBool("DOORSTOP_IGNORE_DISABLED_ENV");
-    if (enabled and !ignore_disabled_env and getEnvBool("DOORSTOP_DISABLE")) {
+/// Returns whether Doorstop is enabled.
+pub fn load(self: *@This()) bool {
+    if (!getEnvBool("DOORSTOP_ENABLED")) {
+        return false;
+    }
+    if (!getEnvBool("DOORSTOP_IGNORE_DISABLED_ENV") and std.process.hasEnvVarConstant("DOORSTOP_DISABLE")) {
         // This is sometimes useful with Steam games that break env var isolation.
+        // TODO: document some specific examples
         logger.debug("DOORSTOP_DISABLE is set! Disabling Doorstop!", .{});
-        enabled = false;
+        return false;
     }
     self.* = .{
-        .enabled = enabled,
         .mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED"),
         .mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND"),
         .mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS"),
@@ -149,6 +148,7 @@ pub fn load(self: *@This()) void {
         .clr_runtime_coreclr_path = getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH"),
         .clr_corlib_dir = getEnvPath("DOORSTOP_CLR_CORLIB_DIR"),
     };
+    return true;
 }
 
 // not used right now.

@@ -111,3 +111,18 @@ pub fn widen(str: [:0]const u8) struct {
         return .{ .str = str };
     }
 }
+
+pub fn setEnv(comptime key: [:0]const u8, value: ?[:0]const os_char) void {
+    switch (builtin.os.tag) {
+        .windows => {
+            @import("windows/util.zig").SetEnvironmentVariable(key, value orelse null);
+        },
+        else => {
+            if (value) |v| {
+                @import("nix/util.zig").setenv(key, v, true);
+            } else {
+                @import("nix/util.zig").unsetenv(key);
+            }
+        },
+    }
+}

@@ -31,50 +31,21 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
                 .{app_folder},
             ) catch @panic("Out of memory");
         },
-        .windows => blk: {
+        else => blk: {
             const working_dir = util.paths.getWorkingDir();
             defer alloc.free(working_dir);
             const program_path = util.paths.programPath();
             defer alloc.free(program_path);
             const file_name = util.paths.getFileNameRef(os_char, program_path, false);
 
-            const suffix_str = "_Data" ++ std.fs.path.sep_str ++ "boot.config";
-            const suffix = switch (builtin.os.tag) {
-                .windows => std.unicode.utf8ToUtf16LeStringLiteral(suffix_str),
-                else => suffix_str,
-            };
-
-            var buf = std.ArrayListUnmanaged(os_char){};
-
-            buf.ensureTotalCapacityPrecise(
-                alloc,
-                working_dir.len + 1 + file_name.len + suffix.len + 1,
-            ) catch @panic("Out of memory");
-            errdefer buf.deinit(alloc);
-
-            buf.appendSliceAssumeCapacity(working_dir);
-            buf.appendAssumeCapacity(std.fs.path.sep);
-            buf.appendSliceAssumeCapacity(file_name);
-            buf.appendSliceAssumeCapacity(suffix);
-            buf.appendAssumeCapacity(0);
-
-            break :blk buf.items[0 .. buf.items.len - 1 :0];
-        },
-        else => blk: {
-            const working_dir = util.paths.getWorkingDir();
-            defer alloc.free(working_dir);
-            const program_path = util.paths.programPath();
-            defer alloc.free(program_path);
-            const file_name = util.paths.getFileNameRef(u8, program_path, false);
-
-            break :blk std.fmt.allocPrintZ(
-                alloc,
-                "{s}" ++ std.fs.path.sep_str ++ "{s}_Data" ++ std.fs.path.sep_str ++ "boot.config",
-                .{ working_dir, file_name },
-            ) catch @panic("Out of memory");
+            break :blk std.mem.concatWithSentinel(alloc, os_char, &.{
+                working_dir,
+                util.osStrLiteral(std.fs.path.sep_str),
+                file_name,
+                util.osStrLiteral("_Data" ++ std.fs.path.sep_str ++ "boot.config"),
+            }, 0) catch @panic("Out of memory");
         },
     };
-
     defer alloc.free(path);
 
     defaultBootConfig = util.file_identity.getFileIdentity(null, path) catch |e| {
@@ -173,20 +144,6 @@ pub fn installHooksNix() callconv(.c) void {
     }
 }
 
-fn captureMonoPath(handle: ?*anyopaque) void {
-    const result = root.util.paths.getModulePath(@ptrCast(handle)).?;
-    defer result.deinit();
-    const name = "DOORSTOP_MONO_LIB_PATH";
-    switch (builtin.os.tag) {
-        .windows => {
-            @import("windows/util.zig").SetEnvironmentVariable(name, result.result);
-        },
-        else => {
-            @import("nix/util.zig").setenv(name, result.result, true);
-        },
-    }
-}
-
 var initialized = false;
 
 fn redirect_init(
@@ -208,10 +165,12 @@ fn redirect_init(
                 // resolving their location.
                 // However, using handle seems to cause issues on some distros, so we pass
                 // the resolved symbol instead.
-                captureMonoPath(switch (builtin.os.tag) {
+                const result = root.util.paths.getModulePath(switch (builtin.os.tag) {
                     .windows => handle,
                     else => std.c.dlsym(handle, name),
-                });
+                }).?;
+                defer result.deinit();
+                util.setEnv("DOORSTOP_MONO_LIB_PATH", result.result);
             }
             init_func(handle);
             root.logger.debug("Loaded all runtime functions", .{});

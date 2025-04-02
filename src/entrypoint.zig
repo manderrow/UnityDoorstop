@@ -2,6 +2,10 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 const root = @import("root.zig");
+const alloc = root.alloc;
+const config = root.config;
+const logger = root.logger;
+const util = root.util;
 
 comptime {
     // export entrypoints
@@ -22,14 +26,30 @@ pub fn entrypoint() callconv(.c) void {
     if (builtin.is_test)
         return;
 
-    root.logger.info("Injecting", .{});
+    logger.info("Injecting", .{});
 
-    root.config.load();
-
-    if (!root.config.enabled) {
-        root.logger.info("Doorstop not enabled! Skipping!", .{});
+    if (!config.load()) {
+        logger.info("Doorstop not enabled! Skipping!", .{});
         return;
     }
+
+    const app_path = util.paths.programPath();
+    defer alloc.free(app_path);
+    const app_dir = util.paths.getFolderName(util.os_char, app_path);
+    const working_dir = util.paths.getWorkingDir();
+    defer alloc.free(working_dir);
+    const doorstop_path = util.paths.getModulePath(switch (builtin.os.tag) {
+        .windows => windows.doorstop_module.?,
+        // on *nix we just need an address in the library
+        else => &entrypoint,
+    }).?;
+    defer doorstop_path.deinit();
+
+    logger.debug("Doorstop started!", .{});
+    logger.debug("Executable path: {}", .{util.fmtString(app_path)});
+    logger.debug("Application dir: {}", .{util.fmtString(app_dir)});
+    logger.debug("Working dir: {}", .{util.fmtString(working_dir)});
+    logger.debug("Doorstop library path: {}", .{util.fmtString(doorstop_path.result)});
 
     switch (builtin.os.tag) {
         // windows
@@ -37,18 +57,16 @@ pub fn entrypoint() callconv(.c) void {
             root.hooks.windows.stdout_handle = std.os.windows.GetStdHandle(std.os.windows.STD_OUTPUT_HANDLE) catch null;
             root.hooks.windows.stderr_handle = std.os.windows.GetStdHandle(std.os.windows.STD_ERROR_HANDLE) catch null;
 
-            root.logger.debug("Standard output handle at {}", .{root.util.fmtAddress(root.hooks.windows.stdout_handle)});
-            root.logger.debug("Standard error handle at {}", .{root.util.fmtAddress(root.hooks.windows.stderr_handle)});
+            logger.debug("Standard output handle at {}", .{util.fmtAddress(root.hooks.windows.stdout_handle)});
+            logger.debug("Standard error handle at {}", .{util.fmtAddress(root.hooks.windows.stderr_handle)});
             // char_t handle_path[MAX_PATH] = L"";
             // GetFinalPathNameByHandle(stdout_handle, handle_path, MAX_PATH, 0);
             // LOG("Standard output handle path: %" Ts, handle_path);
 
-            const doorstop_path = root.util.paths.getModulePath(windows.doorstop_module.?).?;
-            defer doorstop_path.deinit();
             @import("windows/proxy.zig").loadProxy(doorstop_path.result);
 
             const target_module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("UnityPlayer")) orelse blk: {
-                root.logger.debug("No UnityPlayer module found! Using executable as the hook target.", .{});
+                logger.debug("No UnityPlayer module found! Using executable as the hook target.", .{});
                 break :blk std.os.windows.kernel32.GetModuleHandleW(null).?;
             };
 
@@ -57,10 +75,13 @@ pub fn entrypoint() callconv(.c) void {
         else => root.hooks.installHooksNix(),
     }
 
-    root.logger.info("Injected hooks", .{});
     if (builtin.os.tag == .windows) {
-        @import("windows/util.zig").SetEnvironmentVariable("DOORSTOP_DISABLE", std.unicode.utf8ToUtf16LeStringLiteral("1"));
+        // I'm not sure why they only do this on Windows.
+        // The presence is what matters, not the value.
+        util.setEnv("DOORSTOP_DISABLE", util.osStrLiteral("1"));
     }
+
+    logger.info("Injected hooks", .{});
 }
 
 pub const windows = struct {
@@ -81,7 +102,8 @@ pub const windows = struct {
         doorstop_module = @ptrCast(hInstDll);
 
         if (reasonForDllLoad == LoadReason.PROCESS_DETACH) {
-            @import("windows/util.zig").SetEnvironmentVariable("DOORSTOP_DISABLE", null);
+            // similarly to above, I'm not sure why they only do this on Windows.
+            util.setEnv("DOORSTOP_DISABLE", null);
         }
 
         if (reasonForDllLoad != LoadReason.PROCESS_ATTACH) {
