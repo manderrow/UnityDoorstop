@@ -5,7 +5,7 @@ const root = @import("../root.zig");
 
 extern "c" fn fileno(stream: *std.c.FILE) c_int;
 
-export fn fclose_hook(stream: *std.c.FILE) c_int {
+pub fn fcloseHook(stream: *std.c.FILE) callconv(.c) c_int {
     // Some versions of Unity wrongly close stdout, which prevents writing
     // to console
     const fd = fileno(stream);
@@ -47,7 +47,7 @@ fn genFopenHook(comptime real_fn: @TypeOf(std.c.fopen)) @TypeOf(std.c.fopen) {
 pub const fopenHook = genFopenHook(std.c.fopen);
 pub const fopen64Hook = if (builtin.os.tag == .linux) genFopenHook(std.c.fopen64);
 
-export fn dup2_hook(od: c_int, nd: c_int) c_int {
+pub fn dup2Hook(od: c_int, nd: c_int) callconv(.c) c_int {
     // Newer versions of Unity redirect stdout to player.log, we don't want
     // that
     if (nd == std.posix.STDOUT_FILENO or nd == std.posix.STDERR_FILENO)

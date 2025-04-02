@@ -34,6 +34,7 @@ comptime {
         _ = @import("windows/paths.zig");
     }
     if (builtin.os.tag != .windows) {
+        _ = @import("nix/entrypoint.zig");
         _ = @import("nix/plthook_ext.zig");
     }
 }

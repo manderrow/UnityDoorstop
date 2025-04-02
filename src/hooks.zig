@@ -6,6 +6,7 @@ const alloc = root.alloc;
 const util = root.util;
 
 const plthook = @import("plthook");
+const plthook_ext = @import("nix/plthook_ext.zig");
 const iatHook = if (builtin.os.tag == .windows) @import("windows/iat_hook.zig").iatHook;
 
 const nix = if (builtin.os.tag != .windows) @import("nix/hooks.zig");
@@ -135,28 +136,56 @@ fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
     tryIatHook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook), "CreateFileA. Might be unable to override boot config");
 }
 
-fn installHooksNix(hook: *plthook.c.plthook_t) callconv(.c) void {
-    if (plthook.c.plthook_replace(hook, "dlsym", @constCast(&dlsym_hook), null) != 0) {
-        root.logger.err("Failed to hook dlsym. Initialization might be impossible. Error: {s}", .{plthook.c.plthook_error()});
+fn tryPltHook(hook: *plthook.c.plthook_t, funcname: [:0]const u8, funcaddr: *anyopaque, err_note: []const u8) void {
+    if (plthook.c.plthook_replace(hook, funcname, funcaddr, null) != 0) {
+        root.logger.err("Failed to hook {s}.{s} Error: {s}", .{ funcname, err_note, plthook.c.plthook_error() });
     }
+}
+
+pub fn installHooksNix() callconv(.c) void {
+    const hook = plthook_ext.plthook_open_by_filename("UnityPlayer") catch |e| {
+        const s: [*:0]const u8 = switch (e) {
+            error.FileNotFound => "FileNotFound",
+            else => plthook.c.plthook_error(),
+        };
+        std.debug.panic("Failed to open PLT on UnityPlayer: {s}", .{s});
+    };
+    defer plthook.c.plthook_close(hook);
+
+    root.logger.debug("Found UnityPlayer, hooking into it", .{});
+
+    tryPltHook(hook, "dlsym", @constCast(&dlsym_hook), " Initialization might be impossible.");
 
     _ = hookBootConfigCommon() orelse return;
 
     if (builtin.os.tag == .linux) {
-        if (plthook.c.plthook_replace(hook, "fopen64", @constCast(&nix.fopen64Hook), null) != 0) {
-            root.logger.err("Failed to hook fopen64. Might be unable to override boot config. Error: {s}", .{plthook.c.plthook_error()});
-        }
+        tryPltHook(hook, "fopen64", @constCast(&nix.fopen64Hook), " Might be unable to override boot config.");
     }
-    if (plthook.c.plthook_replace(hook, "fopen", @constCast(&nix.fopenHook), null) != 0) {
-        root.logger.err("Failed to hook fopen. Might be unable to override boot config. Error: {s}", .{plthook.c.plthook_error()});
+    tryPltHook(hook, "fopen", @constCast(&nix.fopenHook), " Might be unable to override boot config.");
+
+    tryPltHook(hook, "fclose", @constCast(&nix.fcloseHook), "");
+
+    tryPltHook(hook, "dup2", @constCast(&nix.dup2Hook), "");
+
+    if (builtin.os.tag == .macos) {
+        // On older Unity versions, Mono methods are resolved by the OS's
+        // loader directly. Because of this, there is no dlsym, in which case we
+        // need to apply a PLT hook.
+        if (plthook.c.plthook_replace(hook, "mono_jit_init_version", @constCast(&bootstrap.init_mono), null) != 0) {
+            root.logger.err("Failed to hook mono_jit_init_version. Error: {s}", .{plthook.c.plthook_error()});
+        } else {
+            const mono_handle = plthook_ext.macos.plthook_handle_by_filename("libmono");
+            if (mono_handle) |handle| {
+                bootstrap.load_mono_funcs(handle);
+            }
+        }
     }
 }
 
 comptime {
-    @export(&switch (builtin.os.tag) {
-        .windows => installHooksWindows,
-        else => installHooksNix,
-    }, .{ .name = "installHooks" });
+    if (builtin.os.tag == .windows) {
+        @export(&installHooksWindows, .{ .name = "installHooks" });
+    }
 }
 
 fn captureMonoPath(handle: ?*anyopaque) void {

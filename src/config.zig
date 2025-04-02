@@ -123,25 +123,29 @@ fn checkEnvPath(key: []const u8, path: [:0]const os_char) void {
     }
 }
 
-export fn load_config() void {
-    c_instance.enabled = getEnvBool("DOORSTOP_ENABLED");
+pub fn load(self: *@This()) void {
+    self.c.enabled = getEnvBool("DOORSTOP_ENABLED");
     const ignore_disabled_env = getEnvBool("DOORSTOP_IGNORE_DISABLED_ENV");
-    if (c_instance.enabled and !ignore_disabled_env and getEnvBool("DOORSTOP_DISABLE")) {
+    if (self.c.enabled and !ignore_disabled_env and getEnvBool("DOORSTOP_DISABLE")) {
         // This is sometimes useful with Steam games that break env var isolation.
         logger.debug("DOORSTOP_DISABLE is set! Disabling Doorstop!", .{});
-        c_instance.enabled = false;
+        self.c.enabled = false;
     }
-    c_instance.mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED");
-    c_instance.mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND");
-    c_instance.mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS") orelse null;
-    c_instance.mono_dll_search_path_override = getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE") orelse null;
-    c_instance.target_assembly = getEnvPath("DOORSTOP_TARGET_ASSEMBLY") orelse null;
-    if (c_instance.target_assembly == null) {
+    self.c.mono_debug_enabled = getEnvBool("DOORSTOP_MONO_DEBUG_ENABLED");
+    self.c.mono_debug_suspend = getEnvBool("DOORSTOP_MONO_DEBUG_SUSPEND");
+    self.c.mono_debug_address = getEnvStr("DOORSTOP_MONO_DEBUG_ADDRESS") orelse null;
+    self.c.mono_dll_search_path_override = getEnvStr("DOORSTOP_MONO_DLL_SEARCH_PATH_OVERRIDE") orelse null;
+    self.c.target_assembly = getEnvPath("DOORSTOP_TARGET_ASSEMBLY") orelse null;
+    if (self.c.target_assembly == null) {
         @panic("DOORSTOP_TARGET_ASSEMBLY environment variable must be set");
     }
-    instance.boot_config_override = getEnvPath("DOORSTOP_BOOT_CONFIG_OVERRIDE");
-    c_instance.clr_runtime_coreclr_path = getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH") orelse null;
-    c_instance.clr_corlib_dir = getEnvPath("DOORSTOP_CLR_CORLIB_DIR") orelse null;
+    self.boot_config_override = getEnvPath("DOORSTOP_BOOT_CONFIG_OVERRIDE");
+    self.c.clr_runtime_coreclr_path = getEnvPath("DOORSTOP_CLR_RUNTIME_CORECLR_PATH") orelse null;
+    self.c.clr_corlib_dir = getEnvPath("DOORSTOP_CLR_CORLIB_DIR") orelse null;
+}
+
+export fn load_config() void {
+    instance.load();
 }
 
 // not used right now. Export if we want to use it in the future.
