@@ -6,7 +6,6 @@ const alloc = root.alloc;
 const util = root.util;
 
 const plthook = @import("plthook");
-const plthook_ext = @import("nix/plthook_ext.zig");
 const iatHook = if (builtin.os.tag == .windows) @import("windows/iat_hook.zig").iatHook;
 
 const nix = if (builtin.os.tag != .windows) @import("nix/hooks.zig");
@@ -105,7 +104,7 @@ fn tryPltHook(hook: *plthook.c.plthook_t, funcname: [:0]const u8, funcaddr: *any
 }
 
 pub fn installHooksNix() callconv(.c) void {
-    const hook = plthook_ext.plthook_open_by_filename("UnityPlayer") catch |e| {
+    const hook = plthook.openByFilename(comptime "UnityPlayer" ++ builtin.os.tag.dynamicLibSuffix()) catch |e| {
         const s: [*:0]const u8 = switch (e) {
             error.FileNotFound => "FileNotFound",
             else => plthook.c.plthook_error(),
@@ -136,7 +135,7 @@ pub fn installHooksNix() callconv(.c) void {
         if (plthook.c.plthook_replace(hook, "mono_jit_init_version", @constCast(&bootstrap.init_mono), null) != 0) {
             root.logger.err("Failed to hook mono_jit_init_version. Error: {s}", .{plthook.c.plthook_error()});
         } else {
-            const mono_handle = plthook_ext.macos.plthook_handle_by_filename("libmono");
+            const mono_handle = plthook.system.handleByFilename(comptime "libmono" ++ builtin.os.tag.dynamicLibSuffix());
             if (mono_handle) |handle| {
                 runtimes.mono.load(handle);
             }
