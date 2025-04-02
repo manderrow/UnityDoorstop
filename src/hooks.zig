@@ -103,22 +103,36 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
     return boot_config_override;
 }
 
+fn tryIatHook(
+    dll: std.os.windows.HMODULE,
+    target_dll: [:0]const u8,
+    target_function: anytype,
+    detour_function: @TypeOf(target_function),
+    msg: []const u8,
+) void {
+    tryIatHookUntyped(dll, target_dll, target_function, detour_function, msg);
+}
+
+fn tryIatHookUntyped(
+    dll: std.os.windows.HMODULE,
+    target_dll: [:0]const u8,
+    target_function: anytype,
+    detour_function: @TypeOf(target_function),
+    msg: []const u8,
+) void {
+    iatHook(dll, target_dll, target_function, detour_function) catch |e| {
+        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+    };
+}
+
 fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
-    iatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.GetProcAddress), @constCast(&dlsym_hook)) catch |e| {
-        root.logger.err("Failed to hook GetProcAddress. Error: {}", .{e});
-    };
-    iatHook(module, "kernel32.dll", @constCast(&windows.CloseHandle), @constCast(&windows.close_handle_hook)) catch |e| {
-        root.logger.err("Failed to hook CloseHandle. Error: {}", .{e});
-    };
+    tryIatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.GetProcAddress), @constCast(&dlsym_hook), "GetProcAddress");
+    tryIatHook(module, "kernel32.dll", @constCast(&windows.CloseHandle), @constCast(&windows.close_handle_hook), "CloseHandle");
 
     _ = hookBootConfigCommon() orelse return;
 
-    iatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.CreateFileW), @constCast(&windows.createFileWHook)) catch |e| {
-        root.logger.err("Failed to hook CreateFileW. Might be unable to override boot config. Error: {}", .{e});
-    };
-    iatHook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook)) catch |e| {
-        root.logger.err("Failed to hook CreateFileA. Might be unable to override boot config. Error: {}", .{e});
-    };
+    tryIatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.CreateFileW), @constCast(&windows.createFileWHook), "CreateFileW. Might be unable to override boot config");
+    tryIatHook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook), "CreateFileA. Might be unable to override boot config");
 }
 
 fn installHooksNix(hook: *plthook.c.plthook_t) callconv(.c) void {
