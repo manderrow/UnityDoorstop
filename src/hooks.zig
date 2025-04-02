@@ -21,8 +21,8 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
 
     const path = switch (builtin.os.tag) {
         .macos => blk: {
-            const program_path = util.paths.programPath();
-            defer alloc.free(program_path);
+            var program_path_buf = util.paths.ProgramPathBuf{};
+            const program_path = program_path_buf.get();
             const app_folder = util.paths.getFolderNameRef(u8, util.paths.getFolderNameRef(u8, program_path));
 
             break :blk std.fmt.allocPrintZ(
@@ -34,8 +34,8 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
         else => blk: {
             const working_dir = util.paths.getWorkingDir();
             defer alloc.free(working_dir);
-            const program_path = util.paths.programPath();
-            defer alloc.free(program_path);
+            var program_path_buf = util.paths.ProgramPathBuf{};
+            const program_path = program_path_buf.get();
             const file_name = util.paths.getFileNameRef(os_char, program_path, false);
 
             break :blk std.mem.concatWithSentinel(alloc, os_char, &.{
@@ -157,7 +157,7 @@ fn redirect_init(
     if (std.mem.eql(u8, name, init_name)) {
         if (!initialized) {
             initialized = true;
-            root.logger.debug("Intercepted {s} from {*}", .{ init_name, handle });
+            root.logger.debug("Intercepted {s} from {}", .{ init_name, util.fmtAddress(handle) });
             // the old code had the next two bits swapped on nix. Test and see if it matters.
             if (should_capture_mono_path) {
                 // Resolve dlsym so that it can be passed to capture_mono_path.
@@ -165,12 +165,13 @@ fn redirect_init(
                 // resolving their location.
                 // However, using handle seems to cause issues on some distros, so we pass
                 // the resolved symbol instead.
-                const result = root.util.paths.getModulePath(switch (builtin.os.tag) {
+                // TODO: document specific cases
+                var buf = util.paths.ModulePathBuf{};
+                const path = buf.get(switch (builtin.os.tag) {
                     .windows => handle,
                     else => std.c.dlsym(handle, name),
-                }).?;
-                defer result.deinit();
-                util.setEnv("DOORSTOP_MONO_LIB_PATH", result.result);
+                }) orelse std.debug.panic("Failed to resolve path to module {}", .{util.fmtAddress(handle)});
+                util.setEnv("DOORSTOP_MONO_LIB_PATH", path);
             }
             init_func(handle);
             root.logger.debug("Loaded all runtime functions", .{});

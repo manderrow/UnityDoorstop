@@ -30,55 +30,38 @@ pub fn folder_exists(file: [*:0]const os_char) bool {
     }
 }
 
-pub fn getModulePath(
-    module: ?util.Module(true),
-) ?struct {
-    result: [:0]const os_char,
-    alloc_len: if (builtin.os.tag == .windows) usize else void,
+pub const ModulePathBuf = struct {
+    buf: if (builtin.os.tag == .windows) [std.os.windows.PATH_MAX_WIDE]u16 else void = undefined,
 
-    pub fn deinit(self: @This()) void {
-        if (@TypeOf(self.alloc_len) != void) {
-            alloc.free(@constCast(self.result.ptr)[0..self.alloc_len]);
-        }
-    }
-} {
-    if (builtin.os.tag == .windows) {
-        var buf_size: usize = std.os.windows.MAX_PATH;
-        while (true) {
-            const buf = alloc.alloc(os_char, buf_size) catch return null;
+    pub fn get(self: *@This(), module: ?util.Module(true)) ?[:0]const os_char {
+        self.* = undefined;
+        if (builtin.os.tag == .windows) {
             // see https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew
-            // pass `buf_size + 1` to include the null-terminator
-            const rc = std.os.windows.kernel32.GetModuleFileNameW(module, buf.ptr, std.math.lossyCast(u32, buf_size));
+            const rc = std.os.windows.kernel32.GetModuleFileNameW(module, &self.buf, self.buf.len);
             if (rc == 0) {
                 panicWindowsError("GetModuleFileNameW");
-            } else if (std.os.windows.GetLastError() == .INSUFFICIENT_BUFFER) {
-                buf_size += buf_size / 2;
-            } else {
-                return .{
-                    // cast the pointer to account for the null-terminator added by GetModuleFileNameW
-                    .result = buf[0..rc :0],
-                    .alloc_len = buf.len,
-                };
             }
-            alloc.free(buf);
-        }
-    } else {
-        const dlfcn = @cImport({
-            @cDefine("_GNU_SOURCE", {});
-            @cInclude("dlfcn.h");
-        });
+            if (std.os.windows.GetLastError() == .INSUFFICIENT_BUFFER) {
+                // should not be able to exceed PATH_MAX_WIDE
+                unreachable;
+            }
+            return self.buf[0..rc :0];
+        } else {
+            const dlfcn = @cImport({
+                @cDefine("_GNU_SOURCE", {});
+                @cInclude("dlfcn.h");
+            });
 
-        var info: dlfcn.Dl_info = undefined;
+            var info: dlfcn.Dl_info = undefined;
 
-        if (dlfcn.dladdr(module, &info) == 0) {
-            return null;
+            if (dlfcn.dladdr(module, &info) == 0) {
+                return null;
+            }
+            self.* = .{ .buf = {} };
+            return std.mem.span(@as(?[*:0]const u8, info.dli_fname).?);
         }
-        return .{
-            .result = std.mem.span(@as(?[*:0]const u8, info.dli_fname).?),
-            .alloc_len = {},
-        };
     }
-}
+};
 
 fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
     if (builtin.os.tag == .windows) {
@@ -122,16 +105,20 @@ pub fn getWorkingDir() [:0]os_char {
     return toOsString(slice);
 }
 
-pub fn programPath() [:0]os_char {
-    if (builtin.os.tag == .windows) {
-        const buf = getModulePath(null).?;
-        defer buf.deinit();
-        return alloc.dupeZ(os_char, buf.result) catch @panic("Out of memory");
-    } else {
-        var buf: [std.fs.max_path_bytes]u8 = undefined;
-        return toOsString(std.fs.selfExePath(&buf) catch |e| std.debug.panic("Failed to determine program path: {}", .{e}));
+pub const ProgramPathBuf = struct {
+    buf: if (builtin.os.tag == .windows) ModulePathBuf else [std.fs.max_path_bytes:0]u8 = undefined,
+
+    pub fn get(self: *@This()) [:0]const os_char {
+        if (builtin.os.tag == .windows) {
+            return self.buf.get(null) orelse @panic("Failed to determine program path");
+        } else {
+            self.* = undefined;
+            const slice = std.fs.selfExePath(&self.buf) catch |e| std.debug.panic("Failed to determine program path: {}", .{e});
+            self.buf[slice.len] = 0;
+            return self.buf[0..slice.len :0];
+        }
     }
-}
+};
 
 fn splitPath(comptime Char: type, path: []const Char) struct {
     ext: usize,

@@ -1,7 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-const root = @import("root");
+const root = @import("root.zig");
 const alloc = root.alloc;
 const config = root.config;
 const logger = root.logger;
@@ -25,8 +25,8 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
 
     mono.addrs.thread_set_main.?(mono.addrs.thread_current.?());
 
-    const app_path = root.util.paths.programPath();
-    defer alloc.free(app_path);
+    var program_path_buf = util.paths.ProgramPathBuf{};
+    const app_path = program_path_buf.get();
     util.setEnv("DOORSTOP_PROCESS_PATH", app_path);
 
     util.setEnv("DOORSTOP_INVOKE_DLL_PATH", config.target_assembly.?);
@@ -190,8 +190,8 @@ fn il2cpp_doorstop_bootstrap() void {
 
     coreclr.load(coreclr_module);
 
-    const app_path = util.paths.programPath();
-    defer alloc.free(app_path);
+    var program_path_buf = util.paths.ProgramPathBuf{};
+    const app_path = program_path_buf.get();
     const app_path_n = util.narrow(app_path);
     defer app_path_n.deinit();
 

@@ -26,30 +26,31 @@ pub fn entrypoint() callconv(.c) void {
     if (builtin.is_test)
         return;
 
-    logger.info("Injecting", .{});
-
     if (!config.load()) {
         logger.info("Doorstop not enabled! Skipping!", .{});
         return;
     }
 
-    const app_path = util.paths.programPath();
-    defer alloc.free(app_path);
+    logger.debug("Doorstop started!", .{});
+
+    var program_path_buf = util.paths.ProgramPathBuf{};
+    const app_path = program_path_buf.get();
     const app_dir = util.paths.getFolderName(util.os_char, app_path);
+    logger.debug("Executable path: {}", .{util.fmtString(app_path)});
+    logger.debug("Application dir: {}", .{util.fmtString(app_dir)});
+
     const working_dir = util.paths.getWorkingDir();
     defer alloc.free(working_dir);
-    const doorstop_path = util.paths.getModulePath(switch (builtin.os.tag) {
+    logger.debug("Working dir: {}", .{util.fmtString(working_dir)});
+
+    var doorstop_path_buf = util.paths.ModulePathBuf{};
+    const doorstop_path = doorstop_path_buf.get(switch (builtin.os.tag) {
         .windows => windows.doorstop_module.?,
         // on *nix we just need an address in the library
         else => &entrypoint,
     }).?;
-    defer doorstop_path.deinit();
 
-    logger.debug("Doorstop started!", .{});
-    logger.debug("Executable path: {}", .{util.fmtString(app_path)});
-    logger.debug("Application dir: {}", .{util.fmtString(app_dir)});
-    logger.debug("Working dir: {}", .{util.fmtString(working_dir)});
-    logger.debug("Doorstop library path: {}", .{util.fmtString(doorstop_path.result)});
+    logger.debug("Doorstop library path: {}", .{util.fmtString(doorstop_path)});
 
     switch (builtin.os.tag) {
         // windows
@@ -63,7 +64,7 @@ pub fn entrypoint() callconv(.c) void {
             // GetFinalPathNameByHandle(stdout_handle, handle_path, MAX_PATH, 0);
             // LOG("Standard output handle path: %" Ts, handle_path);
 
-            @import("windows/proxy.zig").loadProxy(doorstop_path.result);
+            @import("windows/proxy.zig").loadProxy(doorstop_path);
 
             const target_module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("UnityPlayer")) orelse blk: {
                 logger.debug("No UnityPlayer module found! Using executable as the hook target.", .{});
