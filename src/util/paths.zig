@@ -5,7 +5,6 @@ const root = @import("../root.zig");
 const alloc = root.alloc;
 const util = root.util;
 
-const c_bool = util.c_bool;
 const os_char = util.os_char;
 
 const panicWindowsError = @import("../windows/util.zig").panicWindowsError;

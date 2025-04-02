@@ -8,12 +8,12 @@ const os_char = root.util.os_char;
 pub var stdout_handle: ?std.os.windows.HANDLE = null;
 pub var stderr_handle: ?std.os.windows.HANDLE = null;
 
-pub extern "kernel32" fn CloseHandle(handle: std.os.windows.HANDLE) callconv(.winapi) root.util.c_bool;
+pub extern "kernel32" fn CloseHandle(handle: std.os.windows.HANDLE) callconv(.winapi) i32;
 
-pub fn close_handle_hook(handle: std.os.windows.HANDLE) callconv(.winapi) root.util.c_bool {
+pub fn close_handle_hook(handle: std.os.windows.HANDLE) callconv(.winapi) i32 {
     if (handle == stdout_handle or handle == stderr_handle)
-        return .true;
-    return @enumFromInt(@intFromBool(std.os.windows.ntdll.NtClose(handle) == .SUCCESS));
+        return 1;
+    return @intFromBool(std.os.windows.ntdll.NtClose(handle) == .SUCCESS);
 }
 
 pub extern "kernel32" fn CreateFileA(

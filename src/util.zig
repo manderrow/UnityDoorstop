@@ -8,12 +8,6 @@ const alloc = @import("root.zig").alloc;
 
 pub const os_char = if (builtin.os.tag == .windows) std.os.windows.WCHAR else u8;
 
-pub const c_bool = enum(c_int) {
-    false = 0,
-    true = 1,
-    _,
-};
-
 pub fn Module(comptime @"const": bool) type {
     return if (builtin.os.tag == .windows) std.os.windows.HMODULE else if (@"const") *const anyopaque else *anyopaque;
 }
