@@ -4,14 +4,12 @@
 
 <h1 align="center">Unity Doorstop</h1>
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/mpfaff/UnityDoorstop/build.yml?branch=master)](https://github.com/mpfaff/UnityDoorstop/actions/workflows/build.yml)
-[![nightly.link artifacts](https://img.shields.io/badge/Artifacts-nightly.link-blueviolet)](https://nightly.link/mpfaff/UnityDoorstop/workflows/build/master)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/manderrow/UnityDoorstop/build.yml?branch=master)](https://github.com/manderrow/UnityDoorstop/actions/workflows/build.yml)
+[![nightly.link artifacts](https://img.shields.io/badge/Artifacts-nightly.link-blueviolet)](https://nightly.link/manderrow/UnityDoorstop/workflows/build/master)
 
 ---
 
 Doorstop is a tool to execute managed .NET assemblies inside Unity as early as possible.
-
-**This is a total rewrite of UnityDoorstop 3. See [list of breaking changes](CHANGES.md) for more information.**
 
 ## Features
 
@@ -71,7 +69,7 @@ Doorstop sets some environment variables useful for code execution:
 | Environment variable          | Description                                                                                                                       |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `DOORSTOP_INITIALIZED`        | Always set to `TRUE`. Use to determine if your code is run via Doorstop.                                                          |
-| `DOORSTOP_INVOKE_DLL_PATH`    | Path to the assembly executed by Doorstop relative to the current working directory.                                              |
+| `DOORSTOP_INVOKE_DLL_PATH`    | Path to the assembly executed by Doorstop ~~relative to the current working directory~~ (this part is not even true upstream).    |
 | `DOORSTOP_PROCESS_PATH`       | Path to the application executable where the injected assembly is run.                                                            |
 | `DOORSTOP_MANAGED_FOLDER_DIR` | _UnityMono_: Path to the game's `Managed` folder. _Il2Cpp_: Path to CoreCLR's base class library folder.                          |
 | `DOORSTOP_DLL_SEARCH_DIRS`    | Paths where the runtime searchs assemblies from by default, separated by OS-specific separator (`;` on windows and `:` on \*nix). |
@@ -130,4 +128,3 @@ Platform specific variables will be indicated as such.
 ## License
 
 Doorstop 4 is licensed under LGPLv2.1. You can view the entire license [here](LICENSE).
-You can still access the source code to the original UnityDoorstop 3 source (licensed under CC0) from [the legacy branch](https://github.com/NeighTools/UnityDoorstop/tree/legacy).
