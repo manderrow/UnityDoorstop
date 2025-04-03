@@ -91,15 +91,17 @@ pub fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
     tryIatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.GetProcAddress), @constCast(&dlsym_hook), "GetProcAddress");
     tryIatHook(module, "kernel32.dll", @constCast(&windows.CloseHandle), @constCast(&windows.close_handle_hook), "CloseHandle");
 
-    _ = hookBootConfigCommon() orelse return;
-
-    tryIatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.CreateFileW), @constCast(&windows.createFileWHook), "CreateFileW. Might be unable to override boot config");
-    tryIatHook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook), "CreateFileA. Might be unable to override boot config");
+    if (hookBootConfigCommon()) |_| {
+        tryIatHook(module, "kernel32.dll", @constCast(&std.os.windows.kernel32.CreateFileW), @constCast(&windows.createFileWHook), "CreateFileW. Might be unable to override boot config");
+        tryIatHook(module, "kernel32.dll", @constCast(&windows.CreateFileA), @constCast(&windows.createFileAHook), "CreateFileA. Might be unable to override boot config");
+    }
 }
 
 fn tryPltHook(hook: *plthook.c.plthook_t, funcname: [:0]const u8, funcaddr: *anyopaque, err_note: []const u8) void {
     if (plthook.c.plthook_replace(hook, funcname, funcaddr, null) != 0) {
         root.logger.err("Failed to hook {s}.{s} Error: {s}", .{ funcname, err_note, plthook.c.plthook_error() });
+    } else {
+        root.logger.debug("Hooked {s}", .{funcname});
     }
 }
 
@@ -117,12 +119,12 @@ pub fn installHooksNix() callconv(.c) void {
 
     tryPltHook(hook, "dlsym", @constCast(&dlsym_hook), " Initialization might be impossible.");
 
-    _ = hookBootConfigCommon() orelse return;
-
-    if (builtin.os.tag == .linux) {
-        tryPltHook(hook, "fopen64", @constCast(&nix.fopen64Hook), " Might be unable to override boot config.");
+    if (hookBootConfigCommon()) |_| {
+        if (builtin.os.tag == .linux) {
+            tryPltHook(hook, "fopen64", @constCast(&nix.fopen64Hook), " Might be unable to override boot config.");
+        }
+        tryPltHook(hook, "fopen", @constCast(&nix.fopenHook), " Might be unable to override boot config.");
     }
-    tryPltHook(hook, "fopen", @constCast(&nix.fopenHook), " Might be unable to override boot config.");
 
     tryPltHook(hook, "fclose", @constCast(&nix.fcloseHook), "");
 
@@ -135,6 +137,7 @@ pub fn installHooksNix() callconv(.c) void {
         if (plthook.c.plthook_replace(hook, "mono_jit_init_version", @constCast(&bootstrap.init_mono), null) != 0) {
             root.logger.err("Failed to hook mono_jit_init_version. Error: {s}", .{plthook.c.plthook_error()});
         } else {
+            root.logger.debug("Hooked mono_jit_init_version", .{});
             const mono_handle = plthook.system.handleByFilename(comptime "libmono" ++ builtin.os.tag.dynamicLibSuffix());
             if (mono_handle) |handle| {
                 runtimes.mono.load(handle);
