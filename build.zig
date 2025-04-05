@@ -15,7 +15,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
         .strip = strip,
-        .link_libc = true,
+        .link_libc = target.result.os.tag != .windows,
     });
 
     const plthook_dep = b.dependency("plthook", .{

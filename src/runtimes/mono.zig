@@ -168,17 +168,10 @@ pub fn image_open_from_file_with_name(
         var file = switch (builtin.os.tag) {
             .windows => std.fs.cwd().openFileW(path, .{}),
             else => std.fs.cwd().openFileZ(path, .{}),
-        } catch |e| switch (e) {
-            error.FileNotFound => {
-                std.c._errno().* = @intFromEnum(std.c.E.NOENT);
-                status.* = .error_errno;
-                return null;
-            },
-            else => {
-                logger.err("Failed to open Mono image file: {}", .{e});
-                status.* = .file_error;
-                return null;
-            },
+        } catch |e| {
+            logger.err("Failed to open Mono image file: {}", .{e});
+            status.* = .file_error;
+            return null;
         };
         defer file.close();
 
@@ -189,8 +182,8 @@ pub fn image_open_from_file_with_name(
             status.* = .file_error;
             return null;
         }) orelse {
-            std.c._errno().* = @intFromEnum(std.c.E.FBIG);
-            status.* = .error_errno;
+            logger.err("Failed to read Mono image file: File too big", .{});
+            status.* = .file_error;
             return null;
         };
 

@@ -4,20 +4,77 @@ const std = @import("std");
 const root = @import("../root.zig");
 const logger = root.logger;
 
+fn RVA2PTRBase(comptime T: type) type {
+    return comptime if (@typeInfo(T).pointer.is_const) *const anyopaque else *anyopaque;
+}
+
+fn RVA2PTRBytes(comptime T: type) type {
+    return comptime if (@typeInfo(T).pointer.is_const) [*]const u8 else [*]u8;
+}
+
 /// PE format uses RVAs (Relative Virtual Addresses) to save addresses relative
 /// to the base of the module More info:
 /// https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files#Relative_Virtual_Addressing_(RVA)
 ///
 /// This helper macro converts the saved RVA to a fully valid pointer to the data
 /// in the PE file
-inline fn RVA2PTR(comptime T: type, base: *anyopaque, rva: usize) T {
-    return @ptrCast(@alignCast(@as([*]u8, @ptrCast(base)) + rva));
+fn RVA2PTR(comptime T: type, base: RVA2PTRBase(T), rva: usize) T {
+    return @ptrCast(@alignCast(@as(RVA2PTRBytes(T), @ptrCast(base)) + rva));
 }
 
-const winnt = @cImport({
-    @cInclude("minwindef.h");
-    @cInclude("winnt.h");
-});
+const winnt = struct {
+    pub const IMAGE_DOS_HEADER = extern struct {
+        e_magic: u16,
+        e_cblp: u16,
+        e_cp: u16,
+        e_crlc: u16,
+        e_cparhdr: u16,
+        e_minalloc: u16,
+        e_maxalloc: u16,
+        e_ss: u16,
+        e_sp: u16,
+        e_csum: u16,
+        e_ip: u16,
+        e_cs: u16,
+        e_lfarlc: u16,
+        e_ovno: u16,
+        e_res: [4]u16,
+        e_oemid: u16,
+        e_oeminfo: u16,
+        e_res2: [10]u16,
+        e_lfanew: i32,
+    };
+
+    pub const IMAGE_NT_HEADERS = extern struct {
+        signature: u32,
+        file_header: std.coff.CoffHeader,
+        optional_header: OptionalHeader,
+
+        pub const OptionalHeader = extern union {
+            base: std.coff.OptionalHeader,
+            pe32: std.coff.OptionalHeaderPE32,
+            pe64: std.coff.OptionalHeaderPE64,
+        };
+
+        pub fn getNumberOfDataDirectories(self: *const @This()) u32 {
+            return switch (self.optional_header.base.magic) {
+                std.coff.IMAGE_NT_OPTIONAL_HDR32_MAGIC => self.optional_header.pe32.number_of_rva_and_sizes,
+                std.coff.IMAGE_NT_OPTIONAL_HDR64_MAGIC => self.optional_header.pe64.number_of_rva_and_sizes,
+                else => unreachable,
+            };
+        }
+
+        pub fn getDataDirectories(self: *const @This()) []const std.coff.ImageDataDirectory {
+            const size: usize = switch (self.optional_header.base.magic) {
+                std.coff.IMAGE_NT_OPTIONAL_HDR32_MAGIC => @sizeOf(std.coff.OptionalHeaderPE32),
+                std.coff.IMAGE_NT_OPTIONAL_HDR64_MAGIC => @sizeOf(std.coff.OptionalHeaderPE64),
+                else => unreachable, // We assume we have validated the header already
+            };
+            const offset = @sizeOf(@This()) - @sizeOf(std.coff.OptionalHeader) + size;
+            return RVA2PTR([*]const std.coff.ImageDataDirectory, self, offset)[0..self.getNumberOfDataDirectories()];
+        }
+    };
+};
 
 ///
 /// @brief Hooks the given function through the Import Address Table.
@@ -54,10 +111,7 @@ fn iatHookUntyped(
     const imports = RVA2PTR(
         [*]std.coff.ImportDirectoryEntry,
         mz,
-        @as(
-            *const std.coff.ImageDataDirectory,
-            @ptrCast(&nt.OptionalHeader.DataDirectory[@intFromEnum(std.coff.DirectoryEntry.IMPORT)]),
-        ).virtual_address,
+        nt.getDataDirectories()[@intFromEnum(std.coff.DirectoryEntry.IMPORT)].virtual_address,
     );
 
     var i: usize = 0;
