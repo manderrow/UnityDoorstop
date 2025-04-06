@@ -80,7 +80,7 @@ pub fn loadProxy(module_path: [:0]const os_char) void {
 
     // includes null-terminator
     const sys_len = std.os.windows.kernel32.GetSystemDirectoryW(root.util.empty(u16), 0);
-    const sys_full_path = alloc.allocSentinel(os_char, sys_len + module_name.len, 0) catch @panic("Out of memory");
+    const sys_full_path = alloc.allocSentinel(os_char, sys_len + 1 + module_name.len, 0) catch @panic("Out of memory");
     defer alloc.free(sys_full_path);
     const n = std.os.windows.kernel32.GetSystemDirectoryW(sys_full_path, sys_len);
     std.debug.assert(n == sys_len - 1);
