@@ -205,12 +205,8 @@ fn dlsym_hook(handle: util.Module(false), name_ptr: [*:0]const u8) callconv(if (
         }
     }
 
-    switch (builtin.os.tag) {
-        .windows => {
-            if (std.os.windows.kernel32.GetProcAddress(handle, name)) |ptr| return ptr;
-
-            return @import("windows/proxy.zig").proxyGetProcAddress(handle, name);
-        },
-        else => return std.c.dlsym(handle, name),
-    }
+    return switch (builtin.os.tag) {
+        .windows => std.os.windows.kernel32.GetProcAddress(handle, name),
+        else => std.c.dlsym(handle, name),
+    };
 }
