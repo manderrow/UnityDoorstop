@@ -9,7 +9,7 @@
 
     .dependencies = .{
         .plthook = .{
-            .url = "git+https://github.com/mpfaff/plthook.git#e0921e4ccf1b44df0e7528466332d0559a87ad05",
+            .url = "git+https://github.com/manderrow/plthook.git#e0921e4ccf1b44df0e7528466332d0559a87ad05",
             .hash = "plthook-0.0.0-91TxxWOcAQCmaDBDPxs8sBPoJcl2DEkQ4oRYP5pd4p4L",
         },
     },

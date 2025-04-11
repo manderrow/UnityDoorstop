@@ -64,8 +64,6 @@ pub fn entrypoint() callconv(.c) void {
             // GetFinalPathNameByHandle(stdout_handle, handle_path, MAX_PATH, 0);
             // LOG("Standard output handle path: %" Ts, handle_path);
 
-            @import("windows/proxy.zig").loadProxy(doorstop_path);
-
             const target_module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("UnityPlayer")) orelse blk: {
                 logger.debug("No UnityPlayer module found! Using executable as the hook target.", .{});
                 break :blk std.os.windows.kernel32.GetModuleHandleW(null).?;
@@ -111,7 +109,7 @@ pub const windows = struct {
             return std.os.windows.TRUE;
         }
 
-        root.entrypoint.entrypoint();
+        entrypoint();
 
         return std.os.windows.TRUE;
     }

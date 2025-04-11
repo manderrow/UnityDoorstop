@@ -1,6 +1,4 @@
-build-no-args optimize="ReleaseFast": (build "-Doptimize="+optimize)
-
-build *ARGS:
+build *ARGS="-Doptimize=ReleaseSafe":
 	zig build test
 	zig build {{ARGS}} -Dtarget=x86_64-linux-gnu
 	zig build {{ARGS}} -Dtarget=x86_64-macos
