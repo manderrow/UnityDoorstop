@@ -54,13 +54,11 @@ pub fn defineFuncImportTable(comptime prefix: []const u8, comptime defns: []cons
 
             pub fn load(lib: if (builtin.os.tag == .windows) std.os.windows.HMODULE else ?*anyopaque) void {
                 inline for (defns) |defn| {
-                    const T = @TypeOf(@field(addrs, defn.name));
                     const name = prefix ++ defn.name;
                     const ptr = switch (builtin.os.tag) {
                         .windows => std.os.windows.kernel32.GetProcAddress(lib, name),
                         else => std.c.dlsym(lib, name),
                     };
-                    std.debug.assert(std.mem.isAligned(@intFromPtr(ptr), @alignOf(T)));
                     @field(addrs, defn.name) = @ptrCast(@alignCast(ptr));
                 }
             }
