@@ -33,3 +33,9 @@ comptime {
 
 // make it available to Zig's start.zig
 pub const DllMain = if (builtin.os.tag == .windows) entrypoint.windows.DllMain;
+
+test {
+    if (builtin.os.tag == .windows) {
+        _ = @import("windows/iat_hook.zig");
+    }
+}
