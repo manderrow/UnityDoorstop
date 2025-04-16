@@ -10,11 +10,9 @@ const util = root.util;
 comptime {
     // export entrypoints
     switch (builtin.os.tag) {
-        .windows => {
-            _ = windows;
-        },
+        .windows => {},
         else => {
-            @export(&[1]*const fn () callconv(.C) void{entrypoint}, .{
+            @export(&[_]*const fn () callconv(.C) void{entrypoint_c}, .{
                 .section = if (builtin.os.tag == .macos) "__DATA,__mod_init_func" else ".init_array",
                 .name = "init_array",
             });
@@ -22,7 +20,11 @@ comptime {
     }
 }
 
-pub fn entrypoint() callconv(.c) void {
+fn entrypoint_c() callconv(.c) void {
+    entrypoint({});
+}
+
+pub fn entrypoint(module: if (builtin.os.tag == .windows) std.os.windows.HMODULE else void) void {
     if (builtin.is_test)
         return;
 
@@ -45,7 +47,7 @@ pub fn entrypoint() callconv(.c) void {
 
     var doorstop_path_buf = util.paths.ModulePathBuf{};
     const doorstop_path = doorstop_path_buf.get(switch (builtin.os.tag) {
-        .windows => windows.doorstop_module.?,
+        .windows => module,
         // on *nix we just need an address in the library
         else => &entrypoint,
     }).?;
@@ -86,30 +88,30 @@ pub fn entrypoint() callconv(.c) void {
 pub const windows = struct {
     pub var doorstop_module: ?std.os.windows.HMODULE = null;
 
-    const LoadReason = enum(std.os.windows.DWORD) {
+    const FdwReason = enum(std.os.windows.DWORD) {
         PROCESS_DETACH = 0,
         PROCESS_ATTACH = 1,
         THREAD_ATTACH = 2,
         THREAD_DETACH = 3,
     };
 
-    export fn DllEntry(
+    pub noinline fn DllMain(
         hInstDll: std.os.windows.HINSTANCE,
-        reasonForDllLoad: LoadReason,
+        fdwReasonRaw: u32,
         _: std.os.windows.LPVOID,
-    ) callconv(.winapi) std.os.windows.BOOL {
-        doorstop_module = @ptrCast(hInstDll);
+    ) std.os.windows.BOOL {
+        const fdwReason: FdwReason = @enumFromInt(fdwReasonRaw);
 
-        if (reasonForDllLoad == LoadReason.PROCESS_DETACH) {
+        if (fdwReason == .PROCESS_DETACH) {
             // similarly to above, I'm not sure why they only do this on Windows.
             util.setEnv("DOORSTOP_DISABLE", null);
         }
 
-        if (reasonForDllLoad != LoadReason.PROCESS_ATTACH) {
+        if (fdwReason != .PROCESS_ATTACH) {
             return std.os.windows.TRUE;
         }
 
-        entrypoint();
+        entrypoint(@ptrCast(hInstDll));
 
         return std.os.windows.TRUE;
     }

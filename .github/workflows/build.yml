@@ -42,24 +42,17 @@ jobs:
             - uses: mlugg/setup-zig@v1
               with:
                   version: 0.14.0
-            - name: "Build for x86_64-linux"
+            - name: "Build"
               run: |
-                  zig build -Doptimize=$OPTIMIZE -Dtarget=x86_64-linux-gnu
-            - name: "Build for x86_64-macos"
-              run: |
-                  zig build -Doptimize=$OPTIMIZE -Dtarget=x86_64-macos
-            - name: "Build for x86_64-windows"
-              run: |
-                  zig build -Doptimize=$OPTIMIZE -Dtarget=x86_64-windows
+                  zig build build-all -Doptimize=$OPTIMIZE
             - name: Hash Artifacts
               run: |
-                  sha256sum ./zig-out/*/* > ./hashes.sha256
-                  b3sum ./zig-out/*/* > ./hashes.blake3
+                  sha256sum ./zig-out/lib/* > ./hashes.sha256
+                  b3sum ./zig-out/lib/* > ./hashes.blake3
             - uses: actions/upload-artifact@v4
               with:
                   name: Artifacts
                   path: |
-                      zig-out/bin/*
                       zig-out/lib/*
                       hashes.sha256
                       hashes.blake3
@@ -69,7 +62,6 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   files: |
-                      zig-out/bin/*
                       zig-out/lib/*
                       hashes.sha256
                       hashes.blake3
@@ -79,7 +71,6 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   files: |
-                      zig-out/bin/*
                       zig-out/lib/*
                       hashes.sha256
                       hashes.blake3

@@ -21,8 +21,8 @@ pub const util = @import("util.zig");
 
 pub const logger = logging.logger;
 
-pub const std_options = std.Options{
-    .log_level = std.log.Level.debug,
+pub const std_options: std.Options = .{
+    .log_level = .debug,
     .logFn = logging.log,
 };
 
@@ -30,3 +30,6 @@ comptime {
     // ensure library entrypoints are exported
     _ = entrypoint;
 }
+
+// make it available to Zig's start.zig
+pub const DllMain = if (builtin.os.tag == .windows) entrypoint.windows.DllMain;

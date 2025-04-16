@@ -1,3 +1,2 @@
 [tools]
-just = "latest"
 zig = "0.14"
