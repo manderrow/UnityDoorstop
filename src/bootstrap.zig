@@ -67,7 +67,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
     const image = blk: {
         var s = mono.ImageOpenFileStatus.ok;
         const image = mono.image_open_from_file_with_name(config.target_assembly.?, &s, 0, dll_path.str);
-        if (s != .ok) {
+        if (s != .ok or image == null) {
             logger.err("Failed to open assembly: {s}. Got result: {}", .{ util.fmtString(config.target_assembly.?), s });
             return;
         }
