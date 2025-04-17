@@ -37,7 +37,7 @@ fn iatHookUntyped(
 }
 
 export fn s_sl_eql(a: [*:0]const u8, b: [*]const u8, b_len: usize) bool {
-    return std.mem.eql(u8, std.mem.span(a), b[0..b_len]);
+    return std.ascii.eqlIgnoreCase(std.mem.span(a), b[0..b_len]);
 }
 
 test "iatHook" {
@@ -62,7 +62,15 @@ test "iatHook" {
         }
     };
 
-    try iatHook(module, "kernel32.dll", &std.os.windows.kernel32.GetProcAddress, &detour.detourGetProcAddress);
+    {
+        const kernel32 = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("kernel32")) orelse {
+            return std.os.windows.unexpectedError(std.os.windows.GetLastError());
+        };
+        const result = std.os.windows.kernel32.GetProcAddress(kernel32, "GetProcAddress") orelse {
+            return std.os.windows.unexpectedError(std.os.windows.GetLastError());
+        };
+        try iatHookUntyped(module, "kernel32.dll", result, &detour.detourGetProcAddress);
+    }
 
     const result = std.os.windows.kernel32.GetProcAddress(module, test_func_name) orelse {
         return std.os.windows.unexpectedError(std.os.windows.GetLastError());

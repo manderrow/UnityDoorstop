@@ -68,32 +68,48 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
 fn tryIatHook(
     dll: std.os.windows.HMODULE,
     target_dll: [:0]const u8,
+    target_function_name: [:0]const u8,
     target_function: anytype,
     detour_function: @TypeOf(target_function),
     msg: []const u8,
 ) void {
-    tryIatHookUntyped(dll, target_dll, target_function, detour_function, msg);
+    tryIatHookUntyped(dll, target_dll, target_function_name, detour_function, msg);
 }
 
 fn tryIatHookUntyped(
     dll: std.os.windows.HMODULE,
     target_dll: [:0]const u8,
-    target_function: anytype,
-    detour_function: @TypeOf(target_function),
+    target_function_name: [:0]const u8,
+    detour_function: *const anyopaque,
     msg: []const u8,
 ) void {
-    iatHook(dll, target_dll, target_function, detour_function) catch |e| {
+    const target_dll_wide = std.unicode.utf8ToUtf16LeAllocZ(alloc, target_dll) catch |e| {
+        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+        return;
+    };
+    defer alloc.free(target_dll_wide);
+    const target_module = std.os.windows.kernel32.GetModuleHandleW(target_dll_wide) orelse {
+        const e = std.os.windows.unexpectedError(std.os.windows.GetLastError()) catch {};
+        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+        return;
+    };
+    const result: *const anyopaque = std.os.windows.kernel32.GetProcAddress(target_module, target_function_name) orelse {
+        const e = std.os.windows.unexpectedError(std.os.windows.GetLastError()) catch {};
+        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+        return;
+    };
+    iatHook(dll, target_dll, result, detour_function) catch |e| {
         root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
     };
 }
 
 pub fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
-    tryIatHook(module, "kernel32.dll", &std.os.windows.kernel32.GetProcAddress, @ptrCast(&dlsym_hook), "GetProcAddress");
-    tryIatHook(module, "kernel32.dll", &windows.CloseHandle, &windows.close_handle_hook, "CloseHandle");
+    tryIatHook(module, "kernel32.dll", "GetProcAddress", &std.os.windows.kernel32.GetProcAddress, @ptrCast(&dlsym_hook), "GetProcAddress");
+    tryIatHook(module, "kernel32.dll", "CloseHandle", &windows.CloseHandle, &windows.close_handle_hook, "CloseHandle");
 
     if (hookBootConfigCommon()) |_| {
-        tryIatHook(module, "kernel32.dll", &std.os.windows.kernel32.CreateFileW, &windows.createFileWHook, "CreateFileW. Might be unable to override boot config");
-        tryIatHook(module, "kernel32.dll", &windows.CreateFileA, &windows.createFileAHook, "CreateFileA. Might be unable to override boot config");
+        tryIatHook(module, "kernel32.dll", "CreateFileW", &std.os.windows.kernel32.CreateFileW, &windows.createFileWHook, "CreateFileW. Might be unable to override boot config");
+        tryIatHook(module, "kernel32.dll", "CreateFileA", &windows.CreateFileA, &windows.createFileAHook, "CreateFileA. Might be unable to override boot config");
     }
 }
 

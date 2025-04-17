@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <windows.h>
 
+#include "../util/logging.h"
+
 bool s_sl_eql(const char *a, const char *b, uintptr_t b_len);
 
 // PE format uses RVAs (Relative Virtual Addresses) to save addresses relative
@@ -50,7 +52,7 @@ static bool iat_hook(void *dll, char const *target_dll,
   for (int i = 0; imports[i].Characteristics; i++) {
     char *name = RVA2PTR(char *, mz, imports[i].Name);
 
-    // log_debug("import %s:", name);
+    log_warn("import %s:", name);
 
     if (!s_sl_eql(name, target_dll, target_dll_len))
       continue;
@@ -60,10 +62,12 @@ static bool iat_hook(void *dll, char const *target_dll,
     for (; *thunk; thunk++) {
       void *import = *thunk;
 
-      if (import != target_function)
+      if (import != target_function) {
+        log_warn("  skipped 0x%p", import);
         continue;
+      }
 
-      // log_debug("  matched 0x%p", import);
+      log_warn("  matched 0x%p", import);
 
       DWORD old_state;
       if (!VirtualProtect(thunk, sizeof(void *), PAGE_READWRITE, &old_state))
@@ -77,7 +81,7 @@ static bool iat_hook(void *dll, char const *target_dll,
     }
   }
 
-  // log_debug("did not match 0x%p", target_function);
+  log_warn("did not match 0x%p", target_function);
 
   return false;
 }
