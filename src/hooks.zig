@@ -88,7 +88,7 @@ fn tryIatHookUntyped(
 }
 
 pub fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
-    tryIatHook(module, "kernel32.dll", &std.os.windows.kernel32.GetProcAddress, &dlsym_hook, "GetProcAddress");
+    tryIatHook(module, "kernel32.dll", &std.os.windows.kernel32.GetProcAddress, @ptrCast(&dlsym_hook), "GetProcAddress");
     tryIatHook(module, "kernel32.dll", &windows.CloseHandle, &windows.close_handle_hook, "CloseHandle");
 
     if (hookBootConfigCommon()) |_| {
