@@ -56,22 +56,32 @@ const winnt = struct {
             pe64: std.coff.OptionalHeaderPE64,
         };
 
-        pub fn getNumberOfDataDirectories(self: *const @This()) u32 {
-            return switch (self.optional_header.base.magic) {
-                std.coff.IMAGE_NT_OPTIONAL_HDR32_MAGIC => self.optional_header.pe32.number_of_rva_and_sizes,
-                std.coff.IMAGE_NT_OPTIONAL_HDR64_MAGIC => self.optional_header.pe64.number_of_rva_and_sizes,
-                else => unreachable,
+        pub fn getDataDirectories(self: *const @This()) []const std.coff.ImageDataDirectory {
+            const number_of_rva_and_sizes_ptr: [*]const u32 = @ptrCast(switch (self.optional_header.base.magic) {
+                std.coff.IMAGE_NT_OPTIONAL_HDR32_MAGIC => &self.optional_header.pe32.number_of_rva_and_sizes,
+                std.coff.IMAGE_NT_OPTIONAL_HDR64_MAGIC => &self.optional_header.pe64.number_of_rva_and_sizes,
+                else => unreachable, // We assume we get a valid header from Windows
+            });
+            return @as([*]const std.coff.ImageDataDirectory, @ptrCast(number_of_rva_and_sizes_ptr + 1))[0..number_of_rva_and_sizes_ptr[0]];
+        }
+
+        pub fn getDataDirectoryRaw(self: *const @This(), base: *IMAGE_DOS_HEADER, id: std.coff.DirectoryEntry) []const u8 {
+            const entry = self.getDataDirectories()[@intFromEnum(id)];
+            const ptr = RVA2PTR([*]const u8, base, entry.virtual_address);
+            return ptr[0..entry.size];
+        }
+
+        pub fn GetDataDirectory(comptime id: std.coff.DirectoryEntry) type {
+            return switch (id) {
+                .IMPORT => std.coff.ImportDirectoryEntry,
+                else => @compileError("Unsupported name " ++ @tagName(id)),
             };
         }
 
-        pub fn getDataDirectories(self: *const @This()) []const std.coff.ImageDataDirectory {
-            const size: usize = switch (self.optional_header.base.magic) {
-                std.coff.IMAGE_NT_OPTIONAL_HDR32_MAGIC => @sizeOf(std.coff.OptionalHeaderPE32),
-                std.coff.IMAGE_NT_OPTIONAL_HDR64_MAGIC => @sizeOf(std.coff.OptionalHeaderPE64),
-                else => unreachable, // We assume we have validated the header already
-            };
-            const offset = @sizeOf(@This()) - @sizeOf(std.coff.OptionalHeader) + size;
-            return RVA2PTR([*]const std.coff.ImageDataDirectory, self, offset)[0..self.getNumberOfDataDirectories()];
+        pub fn getDataDirectory(self: *const @This(), base: *IMAGE_DOS_HEADER, comptime id: std.coff.DirectoryEntry) []const GetDataDirectory(id) {
+            const T = GetDataDirectory(id);
+            const raw = self.getDataDirectoryRaw(base, id);
+            return @as([*]const T, @ptrCast(@alignCast(raw.ptr)))[0..@divExact(raw.len, @sizeOf(T))];
         }
     };
 };
@@ -100,36 +110,63 @@ fn getDosHeader(module: std.os.windows.HMODULE) *winnt.IMAGE_DOS_HEADER {
     return @alignCast(@ptrCast(module));
 }
 
+fn isKnownDirectoryEntry(id: std.coff.DirectoryEntry) bool {
+    inline for (std.meta.tags(@TypeOf(id))) |tag| {
+        if (id == tag) return true;
+    }
+    return false;
+}
+
 fn getDllThunks(module: std.os.windows.HMODULE, target_dll: [:0]const u8) ?[*:null]const ?*anyopaque {
     const mz = getDosHeader(module);
 
     const nt = RVA2PTR(*winnt.IMAGE_NT_HEADERS, mz, @intCast(mz.e_lfanew));
 
-    const imports = RVA2PTR(
-        [*]std.coff.ImportDirectoryEntry,
-        mz,
-        nt.getDataDirectories()[@intFromEnum(std.coff.DirectoryEntry.IMPORT)].virtual_address,
-    );
+    if (builtin.is_test) {
+        logger.warn("{X}", .{nt.file_header.time_date_stamp});
+        for (nt.getDataDirectories(), 0..) |dir, i| {
+            const max_name_len = @tagName(std.coff.DirectoryEntry.COM_DESCRIPTOR).len;
+            const name = std.meta.intToEnum(std.coff.DirectoryEntry, i) catch unreachable;
+            logger.warn(
+                std.fmt.comptimePrint("{{?s:<{}}} ({{x:0>4}})    rva: {{x:0>8}}    size: {{x:0>8}}", .{max_name_len}),
+                .{ if (isKnownDirectoryEntry(name)) @tagName(name) else null, @intFromEnum(name), dir.virtual_address, dir.size },
+            );
+        }
 
-    var i: usize = 0;
-    while (imports[i].import_lookup_table_rva != 0) : (i += 1) {
-        const name = RVA2PTR([*:0]const u8, mz, imports[i].name_rva);
+        logger.warn("done looking at directories", .{});
+    }
+
+    const imports = nt.getDataDirectory(mz, .IMPORT);
+
+    if (builtin.is_test) {
+        logger.warn("found {} imports", .{imports.len});
+    }
+
+    for (imports) |import| {
+        if (import.import_lookup_table_rva == 0) {
+            // we should be at the end now, but just continue anyway
+            continue;
+        }
+        const name = RVA2PTR([*:0]const u8, mz, import.name_rva);
 
         if (builtin.mode == .Debug) {
             if (builtin.is_test) {
-                logger.warn("import {s}:", .{name});
+                logger.warn("import {} {s}:", .{ import, name });
             } else {
                 logger.debug("import {s}:", .{name});
             }
         }
 
-        if (std.mem.eql(u8, std.mem.span(name), target_dll)) {
-            return RVA2PTR([*:null]const ?*anyopaque, mz, imports[i].import_address_table_rva);
+        if (import.import_address_table_rva == 0) {
+            if (builtin.is_test) {
+                logger.warn("  skipping import with null import_address_table_rva", .{});
+            }
+            continue;
         }
-    }
 
-    if (builtin.is_test) {
-        logger.warn("found {} imports", .{i});
+        if (std.ascii.eqlIgnoreCase(std.mem.span(name), target_dll)) {
+            return RVA2PTR([*:null]const ?*anyopaque, mz, import.import_address_table_rva);
+        }
     }
 
     return null;
@@ -159,10 +196,16 @@ fn getDllThunk(
 ) !Thunk {
     var thunks = getDllThunks(module, target_dll) orelse return error.NoDllMatch;
 
+    logger.warn("  searching for {}", .{root.util.fmtAddress(target_function)});
+
     while (thunks[0]) |*thunk| : (thunks += 1) {
         const import = thunk.*;
-        if (import != target_function)
+        if (import != target_function) {
+            if (builtin.is_test) {
+                logger.warn("  skipping {} in {}", .{ root.util.fmtAddress(import), root.util.fmtAddress(thunk) });
+            }
             continue;
+        }
 
         if (builtin.mode == .Debug) {
             logger.debug("  matched {} in {}", .{ root.util.fmtAddress(import), root.util.fmtAddress(thunk) });
@@ -198,7 +241,6 @@ fn iatHookUntyped(
 test "iatHook" {
     const module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("test.exe")) orelse {
         return std.os.windows.unexpectedError(std.os.windows.GetLastError());
-        // @import("util.zig").panicWindowsError("GetModuleHandleW");
     };
 
     const test_func_name = "test iathook";
@@ -224,7 +266,7 @@ test "iatHook" {
     try thunk.write(@constCast(&detour.detourGetProcAddress));
 
     const result = std.os.windows.kernel32.GetProcAddress(module, test_func_name) orelse {
-        @import("util.zig").panicWindowsError("GetProcAddress");
+        return std.os.windows.unexpectedError(std.os.windows.GetLastError());
     };
     try std.testing.expectEqual(test_func_addr, @intFromPtr(result));
 }
