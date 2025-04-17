@@ -55,8 +55,10 @@ fn createLib(
         .target = target,
         .optimize = optimize,
         .strip = strip,
-        .link_libc = target.result.os.tag != .windows,
+        .link_libc = true,
     });
+
+    lib_mod.addIncludePath(b.path("src"));
 
     const plthook_dep = b.dependency("plthook", .{
         .target = target,
