@@ -1,6 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const crash = @import("../crash.zig");
 const root = @import("../root.zig");
 
 const os_char = root.util.os_char;
@@ -51,9 +52,9 @@ pub fn getFileIdentity(dir: ?Handle, path: [:0]const os_char) !FileIdentity {
             ) != 0) {
                 return switch (std.posix.errno(std.c._errno().*)) {
                     .ACCES => error.AccessDenied,
-                    .BADF => unreachable,
-                    .FAULT => unreachable,
-                    .INVAL => unreachable,
+                    .BADF => crash.crashUnreachable(@src()),
+                    .FAULT => crash.crashUnreachable(@src()),
+                    .INVAL => crash.crashUnreachable(@src()),
                     .LOOP => error.SymLinkLoop,
                     .NAMETOOLONG => error.NameTooLong,
                     .NOENT => error.FileNotFound,
@@ -73,8 +74,8 @@ pub fn getFileIdentity(dir: ?Handle, path: [:0]const os_char) !FileIdentity {
                 return switch (std.posix.errno(std.c._errno().*)) {
                     .ACCES => error.AccessDenied,
                     .IO => error.FileSystem,
-                    .BADF => unreachable,
-                    .FAULT => unreachable,
+                    .BADF => crash.crashUnreachable(@src()),
+                    .FAULT => crash.crashUnreachable(@src()),
                     .LOOP => error.SymLinkLoop,
                     .NAMETOOLONG => error.NameTooLong,
                     .NOENT => error.FileNotFound,

@@ -1,6 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const crash = @import("../crash.zig");
 const root = @import("../root.zig");
 const alloc = root.alloc;
 const util = root.util;
@@ -42,7 +43,7 @@ pub const ModulePathBuf = struct {
             }
             if (std.os.windows.GetLastError() == .INSUFFICIENT_BUFFER) {
                 // should not be able to exceed PATH_MAX_WIDE
-                unreachable;
+                crash.crashUnreachable(@src());
             }
             return self.buf[0..rc :0];
         } else {
@@ -166,7 +167,7 @@ fn toOsString(buf: []const u8) [:0]os_char {
         return std.unicode.wtf8ToWtf16LeAllocZ(alloc, buf) catch |e| switch (e) {
             error.OutOfMemory => @panic("Out of memory"),
             // selfExePath and realpath guarantee returning valid WTF-8 on Windows
-            error.InvalidWtf8 => unreachable,
+            error.InvalidWtf8 => crash.crashUnreachable(@src()),
         };
     } else {
         return alloc.dupeZ(u8, buf) catch @panic("Out of memory");

@@ -30,7 +30,7 @@ fn genFopenHook(comptime real_fn: @TypeOf(std.c.fopen)) @TypeOf(std.c.fopen) {
                 const rc = std.posix.system.fclose(stream);
                 if (rc != 0) {
                     switch (std.posix.errno(rc)) {
-                        .BADF => unreachable,
+                        .BADF => @import("../crash.zig").crashUnreachable(@src()),
                         else => |err| std.posix.unexpectedErrno(err) catch {},
                     }
                 }

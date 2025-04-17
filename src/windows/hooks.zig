@@ -67,7 +67,7 @@ fn genCreateFileHook(comptime char: type, comptime real_fn: CreateFileFn(char)) 
                 root.logger.err("Failed to get identity of file \"{s}\": {}", .{ switch (char) {
                     u8 => lpFileName,
                     u16 => std.unicode.fmtUtf16Le(std.mem.span(lpFileName)),
-                    else => comptime unreachable,
+                    else => @compileError("Unsupported char type " ++ @typeName(char)),
                 }, e });
                 return handle;
             };

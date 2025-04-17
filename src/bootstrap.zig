@@ -320,7 +320,7 @@ pub fn hook_mono_image_open_from_data_with_name(
                 logger.err("Failed to load overridden Mono image: Error: {}", .{attemptStatus});
 
                 switch (attemptStatus) {
-                    .ok, .file_not_found => unreachable,
+                    .ok, .file_not_found => @import("crash.zig").crashUnreachable(@src()),
                     .missing_assemblyref, .image_invalid, .error_errno => {
                         status.* = @enumFromInt(@intFromEnum(attemptStatus));
                     },
