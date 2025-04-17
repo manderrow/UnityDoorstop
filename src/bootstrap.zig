@@ -321,12 +321,14 @@ pub fn hook_mono_image_open_from_data_with_name(
 
                 switch (attemptStatus) {
                     .ok, .file_not_found => @import("crash.zig").crashUnreachable(@src()),
-                    .missing_assemblyref, .image_invalid, .error_errno => {
-                        status.* = @enumFromInt(@intFromEnum(attemptStatus));
-                    },
                     .file_error => {
                         // not sure what is the best way to adapt this error
                         status.* = .image_invalid;
+                    },
+                    else => {
+                        // otherwise we haven't handled our own error type properly.
+                        std.debug.assert(@intFromEnum(attemptStatus) > 0);
+                        status.* = @enumFromInt(@intFromEnum(attemptStatus));
                     },
                 }
                 return null;

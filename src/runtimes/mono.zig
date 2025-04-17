@@ -138,6 +138,7 @@ pub const ImageOpenStatus = enum(c_int) {
     error_errno = 1,
     missing_assemblyref = 2,
     image_invalid = 3,
+    _,
 };
 
 pub const ImageOpenFileStatus = enum(c_int) {
@@ -147,6 +148,7 @@ pub const ImageOpenFileStatus = enum(c_int) {
     image_invalid = @intFromEnum(ImageOpenStatus.image_invalid),
     file_not_found = -1,
     file_error = -2,
+    _,
 };
 
 pub const DebugFormat = enum(c_int) {
