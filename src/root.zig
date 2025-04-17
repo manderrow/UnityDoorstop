@@ -2,13 +2,6 @@ const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
 
-pub fn panic(msg: []const u8, error_return_trace: ?*std.builtin.StackTrace, ret_addr: ?usize) noreturn {
-    @branchHint(.cold);
-    _ = error_return_trace;
-    @breakpoint();
-    std.debug.defaultPanic(msg, ret_addr);
-}
-
 var allocInstance = switch (builtin.mode) {
     .Debug, .ReleaseSafe => std.heap.DebugAllocator(.{}).init,
     .ReleaseFast, .ReleaseSmall => {},
