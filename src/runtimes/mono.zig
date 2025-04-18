@@ -1,6 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const crash = @import("../crash.zig");
 const alloc = @import("../root.zig").alloc;
 const logger = @import("../util/logging.zig").logger;
 const runtimes = @import("../runtimes.zig");
@@ -158,6 +159,162 @@ pub const DebugFormat = enum(c_int) {
     debugger,
 };
 
+const windows = struct {
+    pub fn OpenFile(sub_path_w: []const u16, options: std.os.windows.OpenFileOptions) std.os.windows.OpenError!std.os.windows.HANDLE {
+        if (std.mem.eql(u16, sub_path_w, &[_]u16{'.'}) and options.filter == .file_only) {
+            return error.IsDir;
+        }
+        if (std.mem.eql(u16, sub_path_w, &[_]u16{ '.', '.' }) and options.filter == .file_only) {
+            return error.IsDir;
+        }
+
+        var result: std.os.windows.HANDLE = undefined;
+
+        const path_len_bytes = std.math.cast(u16, sub_path_w.len * 2) orelse return error.NameTooLong;
+        var nt_name = std.os.windows.UNICODE_STRING{
+            .Length = path_len_bytes,
+            .MaximumLength = path_len_bytes,
+            .Buffer = @constCast(sub_path_w.ptr),
+        };
+        var attr = std.os.windows.OBJECT_ATTRIBUTES{
+            .Length = @sizeOf(std.os.windows.OBJECT_ATTRIBUTES),
+            .RootDirectory = if (std.fs.path.isAbsoluteWindowsWTF16(sub_path_w)) null else options.dir,
+            .Attributes = if (options.sa) |ptr| blk: { // Note we do not use OBJ_CASE_INSENSITIVE here.
+                const inherit: std.os.windows.ULONG = if (ptr.bInheritHandle == std.os.windows.TRUE) std.os.windows.OBJ_INHERIT else 0;
+                break :blk inherit;
+            } else 0,
+            .ObjectName = &nt_name,
+            .SecurityDescriptor = if (options.sa) |ptr| ptr.lpSecurityDescriptor else null,
+            .SecurityQualityOfService = null,
+        };
+        var io: std.os.windows.IO_STATUS_BLOCK = undefined;
+        const blocking_flag: std.os.windows.ULONG = std.os.windows.FILE_SYNCHRONOUS_IO_NONALERT;
+        const file_or_dir_flag: std.os.windows.ULONG = switch (options.filter) {
+            .file_only => std.os.windows.FILE_NON_DIRECTORY_FILE,
+            .dir_only => std.os.windows.FILE_DIRECTORY_FILE,
+            .any => 0,
+        };
+        // If we're not following symlinks, we need to ensure we don't pass in any synchronization flags such as FILE_SYNCHRONOUS_IO_NONALERT.
+        const flags: std.os.windows.ULONG = if (options.follow_symlinks) file_or_dir_flag | blocking_flag else file_or_dir_flag | std.os.windows.FILE_OPEN_REPARSE_POINT;
+
+        while (true) {
+            const rc = std.os.windows.ntdll.NtCreateFile(
+                &result,
+                options.access_mask,
+                &attr,
+                &io,
+                null,
+                std.os.windows.FILE_ATTRIBUTE_NORMAL,
+                options.share_access,
+                options.creation,
+                flags,
+                null,
+                0,
+            );
+            switch (rc) {
+                .SUCCESS => return result,
+                .OBJECT_NAME_INVALID => return error.BadPathName,
+                .OBJECT_NAME_NOT_FOUND => return error.FileNotFound,
+                .OBJECT_PATH_NOT_FOUND => return error.FileNotFound,
+                .BAD_NETWORK_PATH => return error.NetworkNotFound, // \\server was not found
+                .BAD_NETWORK_NAME => return error.NetworkNotFound, // \\server was found but \\server\share wasn't
+                .NO_MEDIA_IN_DEVICE => return error.NoDevice,
+                .INVALID_PARAMETER => crash.crashUnreachable(@src()),
+                .SHARING_VIOLATION => return error.AccessDenied,
+                .ACCESS_DENIED => return error.AccessDenied,
+                .PIPE_BUSY => return error.PipeBusy,
+                .PIPE_NOT_AVAILABLE => return error.NoDevice,
+                .OBJECT_PATH_SYNTAX_BAD => crash.crashUnreachable(@src()),
+                .OBJECT_NAME_COLLISION => return error.PathAlreadyExists,
+                .FILE_IS_A_DIRECTORY => return error.IsDir,
+                .NOT_A_DIRECTORY => return error.NotDir,
+                .USER_MAPPED_FILE => return error.AccessDenied,
+                .INVALID_HANDLE => crash.crashUnreachable(@src()),
+                .DELETE_PENDING => {
+                    // This error means that there *was* a file in this location on
+                    // the file system, but it was deleted. However, the OS is not
+                    // finished with the deletion operation, and so this CreateFile
+                    // call has failed. There is not really a sane way to handle
+                    // this other than retrying the creation after the OS finishes
+                    // the deletion.
+                    std.time.sleep(std.time.ns_per_ms);
+                    continue;
+                },
+                .VIRUS_INFECTED, .VIRUS_DELETED => return error.AntivirusInterference,
+                else => return std.os.windows.unexpectedStatus(rc),
+            }
+        }
+    }
+
+    pub fn LockFile(
+        FileHandle: std.os.windows.HANDLE,
+        Event: ?std.os.windows.HANDLE,
+        ApcRoutine: ?*std.os.windows.IO_APC_ROUTINE,
+        ApcContext: ?*anyopaque,
+        IoStatusBlock: *std.os.windows.IO_STATUS_BLOCK,
+        ByteOffset: *const std.os.windows.LARGE_INTEGER,
+        Length: *const std.os.windows.LARGE_INTEGER,
+        Key: ?*std.os.windows.ULONG,
+        FailImmediately: std.os.windows.BOOLEAN,
+        ExclusiveLock: std.os.windows.BOOLEAN,
+    ) !void {
+        const rc = std.os.windows.ntdll.NtLockFile(
+            FileHandle,
+            Event,
+            ApcRoutine,
+            ApcContext,
+            IoStatusBlock,
+            ByteOffset,
+            Length,
+            Key,
+            FailImmediately,
+            ExclusiveLock,
+        );
+        switch (rc) {
+            .SUCCESS => return,
+            .INSUFFICIENT_RESOURCES => return error.SystemResources,
+            .LOCK_NOT_GRANTED => return error.WouldBlock,
+            .ACCESS_VIOLATION => crash.crashUnreachable(@src()), // bad io_status_block pointer
+            else => return std.os.windows.unexpectedStatus(rc),
+        }
+    }
+
+    pub fn openFileW(self: std.fs.Dir, sub_path_w: []const u16, flags: std.fs.File.OpenFlags) std.fs.File.OpenError!std.fs.File {
+        const w = std.os.windows;
+        const file: std.fs.File = .{
+            .handle = try OpenFile(sub_path_w, .{
+                .dir = self.fd,
+                .access_mask = w.SYNCHRONIZE |
+                    (if (flags.isRead()) @as(u32, w.GENERIC_READ) else 0) |
+                    (if (flags.isWrite()) @as(u32, w.GENERIC_WRITE) else 0),
+                .creation = w.FILE_OPEN,
+            }),
+        };
+        errdefer file.close();
+        var io: w.IO_STATUS_BLOCK = undefined;
+        const range_off: w.LARGE_INTEGER = 0;
+        const range_len: w.LARGE_INTEGER = 1;
+        const exclusive = switch (flags.lock) {
+            .none => return file,
+            .shared => false,
+            .exclusive => true,
+        };
+        try LockFile(
+            file.handle,
+            null,
+            null,
+            null,
+            &io,
+            &range_off,
+            &range_len,
+            null,
+            @intFromBool(flags.lock_nonblocking),
+            @intFromBool(exclusive),
+        );
+        return file;
+    }
+};
+
 /// If the file exists, it will be loaded, and `true` will be returned. If loading fails,
 /// the function panics. If the file does not exist, `false` will be returned.
 pub fn image_open_from_file_with_name(
@@ -172,7 +329,7 @@ pub fn image_open_from_file_with_name(
                 const cwd = std.fs.cwd();
                 logger.debug("got cwd", .{});
                 logger.debug("opening {}", .{std.unicode.fmtUtf16Le(path)});
-                break :blk1 cwd.openFileW(path, .{});
+                break :blk1 windows.openFileW(cwd, path, .{});
             },
             else => std.fs.cwd().openFileZ(path, .{}),
         } catch |e| {
