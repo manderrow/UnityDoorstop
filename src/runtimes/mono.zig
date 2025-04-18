@@ -176,6 +176,7 @@ pub fn image_open_from_file_with_name(
             return null;
         };
         defer file.close();
+        logger.debug("opened file", .{});
 
         // If the file size doesn't fit a usize it'll be certainly greater than
         // `max_bytes`
@@ -188,6 +189,7 @@ pub fn image_open_from_file_with_name(
             status.* = .file_error;
             return null;
         };
+        logger.debug("got end pos", .{});
 
         break :blk file.readToEndAllocOptions(
             alloc,
@@ -202,6 +204,7 @@ pub fn image_open_from_file_with_name(
         };
     };
     defer alloc.free(buf);
+    logger.debug("read to end", .{});
 
     // need_copy must be forced to true so that Mono copies the data out of our temporary buffer.
     return (addrs.image_open_from_data_with_name orelse {

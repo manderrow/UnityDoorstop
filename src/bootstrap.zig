@@ -64,6 +64,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
 
     const dll_path = util.narrow(config.target_assembly.?);
     defer dll_path.deinit();
+    logger.debug("narrowed dll path", .{});
     const image = blk: {
         var s = mono.ImageOpenFileStatus.ok;
         const image = mono.image_open_from_file_with_name(config.target_assembly.?, &s, 0, dll_path.str);
