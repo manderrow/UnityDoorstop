@@ -4,6 +4,8 @@ const std = @import("std");
 const root = @import("../root.zig");
 const logger = root.logger;
 
+const winnt = @import("winnt.zig");
+
 /// Hooks the given function through the Import Address Table.
 /// This is a simplified version that doesn't does lookup directly in the
 /// initialized IAT.
@@ -30,14 +32,101 @@ fn iatHookUntyped(
     target_function: *const anyopaque,
     detour_function: *const anyopaque,
 ) !void {
-    const c = @cImport(@cInclude("windows/iat_hook.h"));
-    if (!c.iat_hook(module, target_dll.ptr, target_dll.len, target_function, detour_function)) {
-        return error.IatHookFailed;
-    }
+    const thunk = try getDllThunk(module, target_dll, target_function);
+    try thunk.write(@constCast(detour_function));
 }
 
-export fn s_sl_eql(a: [*:0]const u8, b: [*]const u8, b_len: usize) bool {
-    return std.ascii.eqlIgnoreCase(std.mem.span(a), b[0..b_len]);
+fn getDllThunks(module: std.os.windows.HMODULE, target_dll: [:0]const u8) ?[*:null]const ?*anyopaque {
+    const hdr = winnt.getDosHeader(module);
+
+    const imports = hdr.getNtHeaders().getDataDirectory(hdr, .IMPORT);
+
+    for (imports, 0..) |import, i| {
+        if (import.name_rva == 0) {
+            if (i != imports.len - 1) {
+                logger.warn("  skipping import with null name_rva", .{});
+            }
+            break;
+        }
+        const name = winnt.resolveRva([*:0]const u8, hdr, import.name_rva);
+
+        logger.debug("import {s}:", .{name});
+
+        if (import.import_address_table_rva == 0) {
+            logger.warn("  skipping import with null import_address_table_rva", .{});
+            continue;
+        }
+
+        if (std.ascii.eqlIgnoreCase(std.mem.span(name), target_dll)) {
+            return winnt.resolveRva([*:null]const ?*anyopaque, hdr, import.import_address_table_rva);
+        }
+    }
+
+    return null;
+}
+
+fn Protected(comptime T: type) type {
+    return struct {
+        ptr: *const T,
+
+        pub fn write(self: @This(), value: T) !void {
+            const ptr = @constCast(self.ptr);
+
+            var old_state: std.os.windows.DWORD = undefined;
+            try std.os.windows.VirtualProtect(@ptrCast(ptr), @sizeOf(T), std.os.windows.PAGE_READWRITE, &old_state);
+
+            ptr.* = value;
+
+            std.os.windows.VirtualProtect(@ptrCast(ptr), @sizeOf(T), old_state, &old_state) catch |e| {
+                logger.err("Failed to restore memory protection to protected page: {}", .{e});
+            };
+        }
+    };
+}
+
+fn getDllThunk(module: std.os.windows.HMODULE, target_dll: [:0]const u8, target_function: *const anyopaque) !Protected(*const anyopaque) {
+    var thunks = getDllThunks(module, target_dll) orelse return error.NoDllMatch;
+
+    logger.debug("  searching for {}", .{root.util.fmtAddress(target_function)});
+
+    while (thunks[0]) |*thunk| : (thunks += 1) {
+        if (thunk.* == target_function) {
+            logger.debug("    found {} in {}", .{ root.util.fmtAddress(target_function), root.util.fmtAddress(thunk) });
+            return .{ .ptr = thunk };
+        }
+    }
+
+    return error.NoFuncMatch;
+}
+
+test "getDllThunks" {
+    logger.debug("foo bar baz", .{});
+
+    const module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("test.exe")) orelse {
+        return std.os.windows.unexpectedError(std.os.windows.GetLastError());
+    };
+
+    _ = getDllThunks(module, "kernel32.dll") orelse return error.NoDllMatch;
+}
+
+test "getDllThunk non-existent dll" {
+    const module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("test.exe")) orelse {
+        return std.os.windows.unexpectedError(std.os.windows.GetLastError());
+    };
+
+    const test_func_addr: usize = 0xF00F00F00F00;
+
+    try std.testing.expectError(error.NoDllMatch, getDllThunk(module, "foobar.dll", @ptrFromInt(test_func_addr)));
+}
+
+test "getDllThunk non-existent function" {
+    const module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("test.exe")) orelse {
+        return std.os.windows.unexpectedError(std.os.windows.GetLastError());
+    };
+
+    const test_func_addr: usize = 0xF00F00F00F00;
+
+    try std.testing.expectError(error.NoFuncMatch, getDllThunk(module, "kernel32.dll", @ptrFromInt(test_func_addr)));
 }
 
 test "iatHook" {

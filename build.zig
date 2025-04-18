@@ -55,14 +55,8 @@ fn createLib(
         .target = target,
         .optimize = optimize,
         .strip = strip,
-        .link_libc = true,
+        .link_libc = false,
     });
-
-    if (target.result.os.tag == .windows) {
-        lib_mod.addCSourceFile(.{ .file = b.path("src/util/logging.c") });
-    }
-
-    lib_mod.addIncludePath(b.path("src"));
 
     const plthook_dep = b.dependency("plthook", .{
         .target = target,
