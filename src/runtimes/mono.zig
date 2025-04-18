@@ -168,7 +168,12 @@ pub fn image_open_from_file_with_name(
 ) ?*Image {
     const buf = blk: {
         var file = switch (builtin.os.tag) {
-            .windows => std.fs.cwd().openFileW(path, .{}),
+            .windows => blk1: {
+                const cwd = std.fs.cwd();
+                logger.debug("got cwd", .{});
+                logger.debug("opening {}", .{std.unicode.fmtUtf16Le(path)});
+                break :blk1 cwd.openFileW(path, .{});
+            },
             else => std.fs.cwd().openFileZ(path, .{}),
         } catch |e| {
             logger.err("Failed to open Mono image file: {}", .{e});
