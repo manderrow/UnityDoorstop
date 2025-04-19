@@ -3,6 +3,7 @@ const std = @import("std");
 
 const root = @import("root.zig");
 const alloc = root.alloc;
+const logger = root.logger;
 const util = root.util;
 
 const plthook = @import("plthook");
@@ -84,22 +85,22 @@ fn tryIatHookUntyped(
     msg: []const u8,
 ) void {
     const target_dll_wide = std.unicode.utf8ToUtf16LeAllocZ(alloc, target_dll) catch |e| {
-        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+        logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
         return;
     };
     defer alloc.free(target_dll_wide);
     const target_module = std.os.windows.kernel32.GetModuleHandleW(target_dll_wide) orelse {
         const e = std.os.windows.unexpectedError(std.os.windows.GetLastError()) catch {};
-        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+        logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
         return;
     };
     const result: *const anyopaque = std.os.windows.kernel32.GetProcAddress(target_module, target_function_name) orelse {
         const e = std.os.windows.unexpectedError(std.os.windows.GetLastError()) catch {};
-        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+        logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
         return;
     };
     iatHook(dll, target_dll, result, detour_function) catch |e| {
-        root.logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
+        logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
     };
 }
 
@@ -115,9 +116,9 @@ pub fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
 
 fn tryPltHook(hook: *plthook.c.plthook_t, funcname: [:0]const u8, funcaddr: *anyopaque, err_note: []const u8) void {
     if (plthook.c.plthook_replace(hook, funcname, funcaddr, null) != 0) {
-        root.logger.err("Failed to hook {s}.{s} Error: {s}", .{ funcname, err_note, plthook.c.plthook_error() });
+        logger.err("Failed to hook {s}.{s} Error: {s}", .{ funcname, err_note, plthook.c.plthook_error() });
     } else {
-        root.logger.debug("Hooked {s}", .{funcname});
+        logger.debug("Hooked {s}", .{funcname});
     }
 }
 
@@ -131,7 +132,7 @@ pub fn installHooksNix() callconv(.c) void {
     };
     defer plthook.c.plthook_close(hook);
 
-    root.logger.debug("Found UnityPlayer, hooking into it", .{});
+    logger.debug("Found UnityPlayer, hooking into it", .{});
 
     tryPltHook(hook, "dlsym", @constCast(&dlsym_hook), " Initialization might be impossible.");
 
@@ -151,9 +152,9 @@ pub fn installHooksNix() callconv(.c) void {
         // loader directly. Because of this, there is no dlsym, in which case we
         // need to apply a PLT hook.
         if (plthook.c.plthook_replace(hook, "mono_jit_init_version", @constCast(&bootstrap.init_mono), null) != 0) {
-            root.logger.err("Failed to hook mono_jit_init_version. Error: {s}", .{plthook.c.plthook_error()});
+            logger.err("Failed to hook mono_jit_init_version. Error: {s}", .{plthook.c.plthook_error()});
         } else {
-            root.logger.debug("Hooked mono_jit_init_version", .{});
+            logger.debug("Hooked mono_jit_init_version", .{});
             const mono_handle = plthook.system.handleByFilename(comptime "libmono" ++ builtin.os.tag.dynamicLibSuffix());
             if (mono_handle) |handle| {
                 runtimes.mono.load(handle);
@@ -179,7 +180,7 @@ fn redirectInit(
     if (std.mem.eql(u8, name, args.name)) {
         if (!initialized) {
             initialized = true;
-            root.logger.debug("Intercepted {s} from {}", .{ args.name, util.fmtAddress(handle) });
+            logger.debug("Intercepted {s} from {}", .{ args.name, util.fmtAddress(handle) });
             // the old code had the next two bits swapped on nix. Test and see if it matters.
             if (args.should_capture_mono_path) {
                 // Resolve dlsym so that it can be passed to capture_mono_path.
@@ -196,7 +197,7 @@ fn redirectInit(
                 util.setEnv("DOORSTOP_MONO_LIB_PATH", path);
             }
             args.init_func(handle);
-            root.logger.debug("Loaded all runtime functions", .{});
+            logger.debug("Loaded all runtime functions", .{});
         }
         return @constCast(args.target);
     }
@@ -209,7 +210,7 @@ const runtimes = @import("runtimes.zig");
 fn dlsym_hook(handle: util.Module(false), name_ptr: [*:0]const u8) callconv(if (builtin.os.tag == .windows) .winapi else .c) ?*anyopaque {
     const name = std.mem.span(name_ptr);
 
-    root.logger.debug("dlsym({}, \"{s}\")", .{ util.fmtAddress(handle), name });
+    logger.debug("dlsym({}, \"{s}\")", .{ util.fmtAddress(handle), name });
 
     for ([_]RedirectInitArgs{
         .{ .name = "il2cpp_init", .init_func = &runtimes.il2cpp.load, .target = &bootstrap.init_il2cpp, .should_capture_mono_path = false },
