@@ -212,6 +212,16 @@ fn dlsym_hook(handle: util.Module(false), name_ptr: [*:0]const u8) callconv(if (
 
     logger.debug("dlsym({}, \"{s}\")", .{ util.fmtAddress(handle), name });
 
+    if (builtin.cpu.arch == .x86_64) {
+        const rbp = asm (""
+            : [ret] "={rbp}" (-> [*]u8),
+        );
+        const rsp = asm (""
+            : [ret] "={rsp}" (-> [*]u8),
+        );
+        logger.debug("  rbp: {}, rsp: {}", .{ util.fmtAddress(rbp), util.fmtAddress(rsp) });
+    }
+
     for ([_]RedirectInitArgs{
         .{ .name = "il2cpp_init", .init_func = &runtimes.il2cpp.load, .target = &bootstrap.init_il2cpp, .should_capture_mono_path = false },
         .{ .name = "mono_jit_init_version", .init_func = &runtimes.mono.load, .target = &bootstrap.init_mono, .should_capture_mono_path = true },
