@@ -12,7 +12,7 @@ comptime {
     switch (builtin.os.tag) {
         .windows => {},
         else => {
-            @export(&[_]*const fn () callconv(.C) void{entrypoint_c}, .{
+            @export(&[_]*const fn () callconv(.c) void{entrypoint_c}, .{
                 .section = if (builtin.os.tag == .macos) "__DATA,__mod_init_func" else ".init_array",
                 .name = "init_array",
             });
