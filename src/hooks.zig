@@ -164,20 +164,24 @@ pub fn installHooksNix() callconv(.c) void {
 
 var initialized = false;
 
-fn redirect_init(
+const RedirectInitArgs = struct {
+    name: []const u8,
+    init_func: *const fn (handle: util.Module(false)) void,
+    target: *const anyopaque,
+    should_capture_mono_path: bool,
+};
+
+fn redirectInit(
     handle: util.Module(false),
     name: [:0]const u8,
-    comptime init_name: []const u8,
-    comptime init_func: anytype,
-    comptime target: anytype,
-    comptime should_capture_mono_path: bool,
+    args: RedirectInitArgs,
 ) ?*anyopaque {
-    if (std.mem.eql(u8, name, init_name)) {
+    if (std.mem.eql(u8, name, args.name)) {
         if (!initialized) {
             initialized = true;
-            root.logger.debug("Intercepted {s} from {}", .{ init_name, util.fmtAddress(handle) });
+            root.logger.debug("Intercepted {s} from {}", .{ args.name, util.fmtAddress(handle) });
             // the old code had the next two bits swapped on nix. Test and see if it matters.
-            if (should_capture_mono_path) {
+            if (args.should_capture_mono_path) {
                 // Resolve dlsym so that it can be passed to capture_mono_path.
                 // On Unix, we use dladdr which allows to use arbitrary symbols for
                 // resolving their location.
@@ -191,10 +195,10 @@ fn redirect_init(
                 }) orelse std.debug.panic("Failed to resolve path to module {}", .{util.fmtAddress(handle)});
                 util.setEnv("DOORSTOP_MONO_LIB_PATH", path);
             }
-            init_func(handle);
+            args.init_func(handle);
             root.logger.debug("Loaded all runtime functions", .{});
         }
-        return @constCast(target);
+        return @constCast(args.target);
     }
     return null;
 }
@@ -205,18 +209,16 @@ const runtimes = @import("runtimes.zig");
 fn dlsym_hook(handle: util.Module(false), name_ptr: [*:0]const u8) callconv(if (builtin.os.tag == .windows) .winapi else .c) ?*anyopaque {
     const name = std.mem.span(name_ptr);
 
-    if (builtin.mode == .Debug) {
-        root.logger.debug("dlsym({}, \"{s}\")", .{ util.fmtAddress(handle), name });
-    }
+    root.logger.debug("dlsym({}, \"{s}\")", .{ util.fmtAddress(handle), name });
 
-    inline for (.{
-        .{ "il2cpp_init", runtimes.il2cpp.load, &bootstrap.init_il2cpp, false },
-        .{ "mono_jit_init_version", runtimes.mono.load, &bootstrap.init_mono, true },
-        .{ "mono_image_open_from_data_with_name", runtimes.mono.load, &bootstrap.hook_mono_image_open_from_data_with_name, true },
-        .{ "mono_jit_parse_options", runtimes.mono.load, &bootstrap.hook_mono_jit_parse_options, true },
-        .{ "mono_debug_init", runtimes.mono.load, &bootstrap.hook_mono_debug_init, true },
+    for ([_]RedirectInitArgs{
+        .{ .name = "il2cpp_init", .init_func = &runtimes.il2cpp.load, .target = &bootstrap.init_il2cpp, .should_capture_mono_path = false },
+        .{ .name = "mono_jit_init_version", .init_func = &runtimes.mono.load, .target = &bootstrap.init_mono, .should_capture_mono_path = true },
+        .{ .name = "mono_image_open_from_data_with_name", .init_func = &runtimes.mono.load, .target = &bootstrap.hook_mono_image_open_from_data_with_name, .should_capture_mono_path = true },
+        .{ .name = "mono_jit_parse_options", .init_func = &runtimes.mono.load, .target = &bootstrap.hook_mono_jit_parse_options, .should_capture_mono_path = true },
+        .{ .name = "mono_debug_init", .init_func = &runtimes.mono.load, .target = &bootstrap.hook_mono_debug_init, .should_capture_mono_path = true },
     }) |args| {
-        if (redirect_init(handle, name, args[0], args[1], args[2], args[3])) |ptr| {
+        if (redirectInit(handle, name, args)) |ptr| {
             return ptr;
         }
     }
