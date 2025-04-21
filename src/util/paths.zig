@@ -94,14 +94,17 @@ fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
         return res[0..len :0];
     } else {
         var buf: [std.fs.max_path_bytes]u8 = undefined;
-        const slice = std.fs.realpath(std.mem.span(path), &buf) catch |e| std.debug.panic("Failed to resolve a real path: {}", .{e});
+        const slice = std.fs.realpathZ(path, &buf) catch |e| std.debug.panic("Failed to resolve a real path: {}", .{e});
         return toOsString(slice);
     }
 }
 
 pub fn getWorkingDir() [:0]os_char {
     var buf: [std.fs.max_path_bytes]u8 = undefined;
-    const slice = std.fs.cwd().realpath(".", &buf) catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e});
+    const slice = switch (builtin.os.tag) {
+        .windows => std.fs.cwd().realpathW(std.unicode.wtf8ToWtf16LeStringLiteral("."), &buf) catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e}),
+        else => std.fs.cwd().realpathZ(".", &buf) catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e}),
+    };
     return toOsString(slice);
 }
 
