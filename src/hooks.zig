@@ -90,6 +90,8 @@ fn tryIatHookUntyped(
         logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
         return;
     };
+    // Need to GetProcAddress instead of simply using the target_function address, because the target_function may be a
+    // "stub" function embedded in our DLL that invokes the real function.
     const result: *const anyopaque = std.os.windows.kernel32.GetProcAddress(target_module, target_function_name) orelse {
         const e = std.os.windows.unexpectedError(std.os.windows.GetLastError()) catch {};
         logger.err("Failed to hook {s}. Error: {}", .{ msg, e });
@@ -100,7 +102,12 @@ fn tryIatHookUntyped(
     };
 }
 
-pub fn installHooksWindows(module: std.os.windows.HMODULE) callconv(.c) void {
+pub fn installHooksWindows() void {
+    const module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("UnityPlayer")) orelse blk: {
+        logger.debug("No UnityPlayer module found! Using executable as the hook target.", .{});
+        break :blk std.os.windows.kernel32.GetModuleHandleW(null).?;
+    };
+
     tryIatHook(module, "kernel32.dll", "GetProcAddress", &std.os.windows.kernel32.GetProcAddress, @ptrCast(&dlsym_hook), "GetProcAddress");
     tryIatHook(module, "kernel32.dll", "CloseHandle", &windows.CloseHandle, &windows.close_handle_hook, "CloseHandle");
 
@@ -118,7 +125,7 @@ fn tryPltHook(hook: *plthook.c.plthook_t, funcname: [:0]const u8, funcaddr: *any
     }
 }
 
-pub fn installHooksNix() callconv(.c) void {
+pub fn installHooksNix() void {
     const hook = plthook.openByFilename(comptime "UnityPlayer" ++ builtin.os.tag.dynamicLibSuffix()) catch |e| {
         const s: [*:0]const u8 = switch (e) {
             error.FileNotFound => "FileNotFound",

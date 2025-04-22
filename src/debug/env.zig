@@ -30,3 +30,16 @@ pub fn dumpDoorstopPath(module: if (builtin.os.tag == .windows) std.os.windows.H
 
     logger.debug("Doorstop library path: {}", .{util.fmtString(doorstop_path)});
 }
+
+pub fn dumpStdHandle(name: []const u8, handle: ?std.os.windows.HANDLE) void {
+    var buf: [std.os.windows.PATH_MAX_WIDE]u16 = undefined;
+    if (handle) |h| {
+        const path = std.os.windows.GetFinalPathNameByHandle(h, .{}, &buf) catch |e| {
+            logger.debug("Standard {s} handle at {}, unable to determine path: {}", .{ name, util.fmtAddress(h), e });
+            return;
+        };
+        logger.debug("Standard {s} handle at {}, {s}", .{ name, util.fmtAddress(handle), std.unicode.fmtUtf16Le(path) });
+    } else {
+        logger.debug("Standard {s} handle at null", .{name});
+    }
+}

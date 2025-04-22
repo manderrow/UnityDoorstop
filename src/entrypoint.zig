@@ -40,25 +40,16 @@ pub fn entrypoint(module: if (builtin.os.tag == .windows) std.os.windows.HMODULE
     debug_env.dumpWorkingDir();
     debug_env.dumpDoorstopPath(module);
 
+    if (builtin.os.tag == .windows) {
+        root.hooks.windows.stdout_handle = std.os.windows.GetStdHandle(std.os.windows.STD_OUTPUT_HANDLE) catch null;
+        root.hooks.windows.stderr_handle = std.os.windows.GetStdHandle(std.os.windows.STD_ERROR_HANDLE) catch null;
+
+        debug_env.dumpStdHandle("output", root.hooks.windows.stdout_handle);
+        debug_env.dumpStdHandle("error", root.hooks.windows.stderr_handle);
+    }
+
     switch (builtin.os.tag) {
-        // windows
-        .windows => {
-            root.hooks.windows.stdout_handle = std.os.windows.GetStdHandle(std.os.windows.STD_OUTPUT_HANDLE) catch null;
-            root.hooks.windows.stderr_handle = std.os.windows.GetStdHandle(std.os.windows.STD_ERROR_HANDLE) catch null;
-
-            logger.debug("Standard output handle at {}", .{util.fmtAddress(root.hooks.windows.stdout_handle)});
-            logger.debug("Standard error handle at {}", .{util.fmtAddress(root.hooks.windows.stderr_handle)});
-            // char_t handle_path[MAX_PATH] = L"";
-            // GetFinalPathNameByHandle(stdout_handle, handle_path, MAX_PATH, 0);
-            // LOG("Standard output handle path: %" Ts, handle_path);
-
-            const target_module = std.os.windows.kernel32.GetModuleHandleW(std.unicode.utf8ToUtf16LeStringLiteral("UnityPlayer")) orelse blk: {
-                logger.debug("No UnityPlayer module found! Using executable as the hook target.", .{});
-                break :blk std.os.windows.kernel32.GetModuleHandleW(null).?;
-            };
-
-            root.hooks.installHooksWindows(target_module);
-        },
+        .windows => root.hooks.installHooksWindows(),
         else => root.hooks.installHooksNix(),
     }
 
