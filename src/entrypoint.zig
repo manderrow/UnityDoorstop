@@ -35,15 +35,19 @@ pub fn entrypoint(module: if (builtin.os.tag == .windows) std.os.windows.HMODULE
 
     logger.debug("Doorstop started!", .{});
 
-    var program_path_buf = util.paths.ProgramPathBuf{};
-    const app_path = program_path_buf.get();
-    const app_dir = util.paths.getFolderName(util.os_char, app_path);
-    logger.debug("Executable path: {}", .{util.fmtString(app_path)});
-    logger.debug("Application dir: {}", .{util.fmtString(app_dir)});
+    {
+        var program_path_buf = util.paths.ProgramPathBuf{};
+        const app_path = program_path_buf.get();
+        const app_dir = util.paths.getFolderName(util.os_char, app_path);
+        logger.debug("Executable path: {}", .{util.fmtString(app_path)});
+        logger.debug("Application dir: {}", .{util.fmtString(app_dir)});
+    }
 
-    const working_dir = util.paths.getWorkingDir();
-    defer alloc.free(working_dir);
-    logger.debug("Working dir: {}", .{util.fmtString(working_dir)});
+    {
+        const working_dir = util.paths.getWorkingDir() catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e});
+        defer alloc.free(working_dir);
+        logger.debug("Working dir: {}", .{util.fmtString(working_dir)});
+    }
 
     var doorstop_path_buf = util.paths.ModulePathBuf{};
     const doorstop_path = doorstop_path_buf.get(switch (builtin.os.tag) {

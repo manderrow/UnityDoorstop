@@ -23,7 +23,7 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
         .macos => blk: {
             var program_path_buf = util.paths.ProgramPathBuf{};
             const program_path = program_path_buf.get();
-            const app_folder = util.paths.getFolderNameRef(u8, util.paths.getFolderNameRef(u8, program_path));
+            const app_folder = util.paths.getFolderName(u8, util.paths.getFolderName(u8, program_path));
 
             break :blk std.fmt.allocPrintZ(
                 alloc,
@@ -32,15 +32,11 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
             ) catch @panic("Out of memory");
         },
         else => blk: {
-            const working_dir = util.paths.getWorkingDir();
-            defer alloc.free(working_dir);
             var program_path_buf = util.paths.ProgramPathBuf{};
             const program_path = program_path_buf.get();
-            const file_name = util.paths.getFileNameRef(os_char, program_path, false);
+            const file_name = util.paths.getFileName(os_char, program_path, false);
 
             break :blk std.mem.concatWithSentinel(alloc, os_char, &.{
-                working_dir,
-                util.osStrLiteral(std.fs.path.sep_str),
                 file_name,
                 util.osStrLiteral("_Data" ++ std.fs.path.sep_str ++ "boot.config"),
             }, 0) catch @panic("Out of memory");

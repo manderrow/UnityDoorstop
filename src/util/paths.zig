@@ -99,11 +99,11 @@ fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
     }
 }
 
-pub fn getWorkingDir() [:0]os_char {
+pub fn getWorkingDir() ![:0]os_char {
     var buf: [std.fs.max_path_bytes]u8 = undefined;
     const slice = switch (builtin.os.tag) {
-        .windows => std.fs.cwd().realpathW(std.unicode.wtf8ToWtf16LeStringLiteral("."), &buf) catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e}),
-        else => std.fs.cwd().realpathZ(".", &buf) catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e}),
+        .windows => try std.fs.cwd().realpathW(std.unicode.wtf8ToWtf16LeStringLiteral("."), &buf),
+        else => try std.fs.cwd().realpathZ(".", &buf),
     };
     return toOsString(slice);
 }
@@ -146,23 +146,22 @@ fn splitPath(comptime Char: type, path: []const Char) struct {
     }
 }
 
-pub fn getFolderNameRef(comptime Char: type, path: []const Char) []const Char {
+/// The returned slice is a reference into `path`.
+pub fn getFolderName(comptime Char: type, path: []const Char) []const Char {
     const parts = splitPath(Char, path);
     return path[0 .. @max(parts.parent, 1) - 1];
 }
 
-pub fn getFolderName(comptime Char: type, path: []const Char) [:0]Char {
-    return alloc.dupeZ(Char, getFolderNameRef(Char, path)) catch @panic("Out of memory");
+/// Caller must free the returned slice.
+pub fn getFolderNameZ(comptime Char: type, path: []const Char) [:0]Char {
+    return alloc.dupeZ(Char, getFolderName(Char, path)) catch @panic("Out of memory");
 }
 
-pub fn getFileNameRef(comptime Char: type, path: []const Char, with_ext: bool) []const Char {
+/// The returned slice is a reference into `path`.
+pub fn getFileName(comptime Char: type, path: []const Char, with_ext: bool) []const Char {
     const parts = splitPath(Char, path);
     const end = if (with_ext) path.len else parts.ext;
     return path[parts.parent..end];
-}
-
-pub fn getFileName(comptime Char: type, path: []const Char, with_ext: bool) [:0]Char {
-    return alloc.dupeZ(Char, getFileNameRef(Char, path, with_ext)) catch @panic("Out of memory");
 }
 
 fn toOsString(buf: []const u8) [:0]os_char {

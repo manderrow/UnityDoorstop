@@ -45,7 +45,7 @@ pub fn fmtAddress(ptr: anytype) FmtAddress {
 }
 
 pub const FmtString = struct {
-    str: [:0]const os_char,
+    str: []const os_char,
 
     pub fn format(
         self: @This(),
@@ -65,15 +65,15 @@ pub const FmtString = struct {
     }
 };
 
-pub fn fmtString(str: [:0]const os_char) FmtString {
+pub fn fmtString(str: []const os_char) FmtString {
     return .{ .str = str };
 }
 
-pub fn narrow(str: [:0]const os_char) struct {
-    str: [:0]const u8,
+pub fn narrow(comptime nt_in: bool, comptime nt_out: bool, str: if (nt_in) [:0]const os_char else []const os_char) struct {
+    str: if (nt_out) [:0]const u8 else []const u8,
 
     pub fn deinit(self: @This()) void {
-        if (builtin.os.tag == .windows) {
+        if (builtin.os.tag == .windows or (nt_out and !nt_in)) {
             alloc.free(@constCast(self.str));
         }
     }
@@ -83,7 +83,9 @@ pub fn narrow(str: [:0]const os_char) struct {
             error.OutOfMemory => @panic("Out of memory"),
         } };
     } else {
-        return .{ .str = str };
+        return .{ .str = if (nt_out and !nt_in) alloc.dupeZ(u8, str) catch |e| switch (e) {
+            error.OutOfMemory => @panic("Out of memory"),
+        } else str };
     }
 }
 

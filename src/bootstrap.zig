@@ -38,12 +38,11 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
         }, 0) catch @panic("Out of memory");
         defer alloc.free(config_path);
 
-        const config_path_n = util.narrow(config_path);
+        const config_path_n = util.narrow(true, true, config_path);
         defer config_path_n.deinit();
 
         const folder_path = root.util.paths.getFolderName(os_char, app_path);
-        defer alloc.free(folder_path);
-        const folder_path_n = util.narrow(folder_path);
+        const folder_path_n = util.narrow(false, true, folder_path);
         defer folder_path_n.deinit();
 
         logger.debug("Setting config paths: base dir: {s}; config path: {s}", .{ folder_path_n.str, config_path_n.str });
@@ -52,17 +51,19 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
     }
 
     const assembly_dir = std.mem.span(mono.addrs.assembly_getrootdir.?());
-    const norm_assembly_dir = util.widen(assembly_dir);
-    defer norm_assembly_dir.deinit();
 
     mono.addrs.config_parse.?(null);
 
     logger.debug("Assembly dir: {s}", .{assembly_dir});
-    util.setEnv("DOORSTOP_MANAGED_FOLDER_DIR", norm_assembly_dir.str);
+    {
+        const norm_assembly_dir = util.widen(assembly_dir);
+        defer norm_assembly_dir.deinit();
+        util.setEnv("DOORSTOP_MANAGED_FOLDER_DIR", norm_assembly_dir.str);
+    }
 
     logger.debug("Opening assembly: {}", .{util.fmtString(config.target_assembly.?)});
 
-    const dll_path = util.narrow(config.target_assembly.?);
+    const dll_path = util.narrow(true, true, config.target_assembly.?);
     defer dll_path.deinit();
     logger.debug("narrowed dll path", .{});
     const image = blk: {
@@ -127,7 +128,7 @@ pub fn init_mono(root_domain_name: [*:0]const u8, runtime_version: [*:0]const u8
     logger.debug("Overriding mono DLL search path", .{});
 
     const mono_search_path_alloc = if (config.mono_dll_search_path_override) |paths| blk: {
-        const mono_dll_search_path_override_n = util.narrow(paths);
+        const mono_dll_search_path_override_n = util.narrow(true, false, paths);
         defer mono_dll_search_path_override_n.deinit();
         break :blk std.mem.concatWithSentinel(
             alloc,
@@ -193,15 +194,9 @@ fn il2cpp_doorstop_bootstrap() void {
 
     var program_path_buf = util.paths.ProgramPathBuf{};
     const app_path = program_path_buf.get();
-    const app_path_n = util.narrow(app_path);
-    defer app_path_n.deinit();
 
     const target_dir = util.paths.getFolderName(os_char, config.target_assembly.?);
-    defer alloc.free(target_dir);
     const target_name = util.paths.getFileName(os_char, config.target_assembly.?, false);
-    defer alloc.free(target_name);
-    const target_name_n = util.narrow(target_name);
-    defer target_name_n.deinit();
 
     const app_paths_env = std.mem.concatWithSentinel(
         alloc,
@@ -211,7 +206,7 @@ fn il2cpp_doorstop_bootstrap() void {
     ) catch @panic("Out of memory");
     defer alloc.free(app_paths_env);
 
-    const app_paths_env_n = util.narrow(app_paths_env);
+    const app_paths_env_n = util.narrow(true, true, app_paths_env);
     defer app_paths_env_n.deinit();
 
     logger.debug("App path: {}", .{util.fmtString(app_path)});
@@ -227,6 +222,9 @@ fn il2cpp_doorstop_bootstrap() void {
     util.setEnv("DOORSTOP_PROCESS_PATH", app_path);
     util.setEnv("DOORSTOP_DLL_SEARCH_DIRS", app_paths_env);
 
+    const app_path_n = util.narrow(true, true, app_path);
+    defer app_path_n.deinit();
+
     var host: ?*anyopaque = null;
     var domain_id: u32 = 0;
     var result = coreclr.addrs.initialize.?(app_path_n.str, "Doorstop Domain", 1, &.{props}, &.{app_paths_env_n.str}, &host, &domain_id);
@@ -234,6 +232,8 @@ fn il2cpp_doorstop_bootstrap() void {
         std.debug.panic("Failed to initialize CoreCLR: 0x{x:0>8}", .{result});
     }
 
+    const target_name_n = util.narrow(false, true, target_name);
+    defer target_name_n.deinit();
     var startup: ?*const fn () callconv(.c) void = null;
     result = coreclr.addrs.create_delegate.?(host.?, domain_id, target_name_n.str, "Doorstop.Entrypoint", "Start", @ptrCast(&startup));
     if (result != 0) {
@@ -252,7 +252,7 @@ pub fn init_il2cpp(domain_name: [*:0]const u8) callconv(.c) i32 {
 }
 
 pub fn hook_mono_jit_parse_options(argc: c_int, argv: [*][*:0]u8) callconv(.c) void {
-    const debug_options_buf = if (@import("Config.zig").getEnvStrRef("DNSPY_UNITY_DBG2")) |s| util.narrow(s) else null;
+    const debug_options_buf = if (@import("Config.zig").getEnvStrRef("DNSPY_UNITY_DBG2")) |s| util.narrow(true, true, s) else null;
     defer if (debug_options_buf) |buf| buf.deinit();
     var debug_options = if (debug_options_buf) |buf| buf.str else null;
     defer if (debug_options) |s| if (debug_options_buf == null) alloc.free(s);
@@ -269,15 +269,23 @@ pub fn hook_mono_jit_parse_options(argc: c_int, argv: [*][*:0]u8) callconv(.c) v
         @memcpy(new_argv[0..@intCast(argc)], argv);
 
         if (debug_options == null) {
-            const mono_debug_address_alloc = if (config.mono_debug_address) |s| util.narrow(s) else null;
-            defer if (mono_debug_address_alloc) |s| s.deinit();
-            const mono_debug_address: []const u8 = if (mono_debug_address_alloc) |s| s.str else "127.0.0.1:10000";
+            const max_ipv6_addr_len = 5 * 8 - 1;
+            const max_port_len = 5;
+            var mono_debug_address_buf: if (builtin.os.tag == .windows) [max_ipv6_addr_len + 1 + max_port_len]u8 else void = undefined;
+            const mono_debug_address: []const u8 = if (config.mono_debug_address) |s| switch (builtin.os.tag) {
+                .windows => blk: {
+                    const n = std.unicode.utf16LeToUtf8(&mono_debug_address_buf, s) catch |e| {
+                        std.debug.panic("Invalid Mono debugger agent address: {}", .{e});
+                    };
+                    break :blk mono_debug_address_buf[0..n];
+                },
+                else => s,
+            } else "127.0.0.1:10000";
 
-            const MONO_DEBUG_NO_SUSPEND = ",suspend=n";
-            const MONO_DEBUG_NO_SUSPEND_NET35 = ",suspend=n,defer=y";
-            debug_options = std.fmt.allocPrintZ(alloc, "--debugger-agent=transport=dt_socket,server=y,address={s}{s}", .{
+            debug_options = std.fmt.allocPrintZ(alloc, "--debugger-agent=transport=dt_socket,server=y,address={s}{s}{s}", .{
                 mono_debug_address,
-                if (config.mono_debug_suspend) "" else if (mono_is_net35) MONO_DEBUG_NO_SUSPEND_NET35 else MONO_DEBUG_NO_SUSPEND,
+                if (config.mono_debug_suspend) "" else ",suspend=n",
+                if (config.mono_debug_suspend or !mono_is_net35) "" else ",defer=y",
             }) catch @panic("Out of memory");
         }
 
@@ -299,7 +307,7 @@ pub fn hook_mono_image_open_from_data_with_name(
     name: [*:0]const u8,
 ) callconv(.c) ?*mono.Image {
     if (config.mono_dll_search_path_override) |mono_dll_search_path_override| {
-        const name_file = root.util.paths.getFileNameRef(u8, std.mem.span(name), true);
+        const name_file = root.util.paths.getFileName(u8, std.mem.span(name), true);
 
         const name_file_len = std.unicode.calcWtf16LeLen(name_file) catch @panic("Invalid WTF-8");
         const new_full_path = alloc.allocSentinel(os_char, name_file_len + 1 + mono_dll_search_path_override.len, 0) catch @panic("Out of memory");
