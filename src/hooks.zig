@@ -211,10 +211,14 @@ const bootstrap = @import("bootstrap.zig");
 const runtimes = @import("runtimes.zig");
 
 fn dlsym_hook(handle: util.Module(false), name_ptr: [*:0]const u8) callconv(if (builtin.os.tag == .windows) .winapi else .c) ?*anyopaque {
-    if (builtin.os.tag == .windows and @intFromPtr(name_ptr) >> 16 == 0) {
-        // documented that if the "HIWORD" is 0, the name_ptr actually specifies an ordinal.
-        logger.debug("dlsym({}, {})", .{ util.fmtAddress(handle), @intFromPtr(name_ptr) });
-        return std.os.windows.kernel32.GetProcAddress(handle, name_ptr);
+    if (builtin.os.tag == .windows) {
+        if (std.math.cast(u16, @intFromPtr(name_ptr))) |ordinal| {
+            // Documented that if the "HIWORD" is 0, the name_ptr actually specifies an
+            // ordinal. On 64-bit, this seems to be implemented more like a cast,
+            // checking if the upper 48 bits are 0 rather than just the upper 16.
+            logger.debug("dlsym({}, {})", .{ util.fmtAddress(handle), ordinal });
+            return std.os.windows.kernel32.GetProcAddress(handle, name_ptr);
+        }
     }
 
     const name = std.mem.span(name_ptr);
