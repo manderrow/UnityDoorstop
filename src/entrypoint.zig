@@ -35,28 +35,10 @@ pub fn entrypoint(module: if (builtin.os.tag == .windows) std.os.windows.HMODULE
 
     logger.debug("Doorstop started!", .{});
 
-    {
-        var program_path_buf = util.paths.ProgramPathBuf{};
-        const app_path = program_path_buf.get();
-        const app_dir = util.paths.getFolderName(util.os_char, app_path);
-        logger.debug("Executable path: {}", .{util.fmtString(app_path)});
-        logger.debug("Application dir: {}", .{util.fmtString(app_dir)});
-    }
-
-    {
-        const working_dir = util.paths.getWorkingDir() catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e});
-        defer alloc.free(working_dir);
-        logger.debug("Working dir: {}", .{util.fmtString(working_dir)});
-    }
-
-    var doorstop_path_buf = util.paths.ModulePathBuf{};
-    const doorstop_path = doorstop_path_buf.get(switch (builtin.os.tag) {
-        .windows => module,
-        // on *nix we just need an address in the library
-        else => &entrypoint,
-    }).?;
-
-    logger.debug("Doorstop library path: {}", .{util.fmtString(doorstop_path)});
+    const debug_env = @import("debug/env.zig");
+    debug_env.dumpProgramPath();
+    debug_env.dumpWorkingDir();
+    debug_env.dumpDoorstopPath(module);
 
     switch (builtin.os.tag) {
         // windows

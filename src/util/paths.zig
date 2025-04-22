@@ -31,7 +31,7 @@ pub fn folder_exists(file: [*:0]const os_char) bool {
 }
 
 pub const ModulePathBuf = struct {
-    buf: if (builtin.os.tag == .windows) [std.os.windows.PATH_MAX_WIDE]u16 else void = undefined,
+    buf: if (builtin.os.tag == .windows) [std.os.windows.PATH_MAX_WIDE]u16 else void,
 
     pub fn get(self: *@This(), module: ?util.Module(true)) ?[:0]const os_char {
         self.* = undefined;
@@ -109,7 +109,7 @@ pub fn getWorkingDir() ![:0]os_char {
 }
 
 pub const ProgramPathBuf = struct {
-    buf: if (builtin.os.tag == .windows) ModulePathBuf else [std.fs.max_path_bytes:0]u8 = undefined,
+    buf: if (builtin.os.tag == .windows) ModulePathBuf else [std.fs.max_path_bytes:0]u8,
 
     pub fn get(self: *@This()) [:0]const os_char {
         if (builtin.os.tag == .windows) {

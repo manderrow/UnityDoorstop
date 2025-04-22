@@ -25,7 +25,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
 
     mono.addrs.thread_set_main.?(mono.addrs.thread_current.?());
 
-    var program_path_buf = util.paths.ProgramPathBuf{};
+    var program_path_buf: util.paths.ProgramPathBuf = undefined;
     const app_path = program_path_buf.get();
     util.setEnv("DOORSTOP_PROCESS_PATH", app_path);
 
@@ -192,7 +192,7 @@ fn il2cpp_doorstop_bootstrap() void {
 
     coreclr.load(coreclr_module);
 
-    var program_path_buf = util.paths.ProgramPathBuf{};
+    var program_path_buf: util.paths.ProgramPathBuf = undefined;
     const app_path = program_path_buf.get();
 
     const target_dir = util.paths.getFolderName(os_char, config.target_assembly.?);

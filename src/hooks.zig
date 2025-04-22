@@ -21,7 +21,7 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
 
     const path = switch (builtin.os.tag) {
         .macos => blk: {
-            var program_path_buf = util.paths.ProgramPathBuf{};
+            var program_path_buf: util.paths.ProgramPathBuf = undefined;
             const program_path = program_path_buf.get();
             const app_folder = util.paths.getFolderName(u8, util.paths.getFolderName(u8, program_path));
 
@@ -32,7 +32,7 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
             ) catch @panic("Out of memory");
         },
         else => blk: {
-            var program_path_buf = util.paths.ProgramPathBuf{};
+            var program_path_buf: util.paths.ProgramPathBuf = undefined;
             const program_path = program_path_buf.get();
             const file_name = util.paths.getFileName(os_char, program_path, false);
 
@@ -185,7 +185,7 @@ fn redirectInit(
                 // However, using handle seems to cause issues on some distros, so we pass
                 // the resolved symbol instead.
                 // TODO: document specific cases
-                var buf = util.paths.ModulePathBuf{};
+                var buf: util.paths.ModulePathBuf = undefined;
                 const path = buf.get(switch (builtin.os.tag) {
                     .windows => handle,
                     else => std.c.dlsym(handle, name),
