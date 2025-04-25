@@ -7,9 +7,6 @@ const logger = @import("../util/logging.zig").logger;
 const runtimes = @import("../runtimes.zig");
 const os_char = @import("../util.zig").os_char;
 
-//DEF_CALL\(([^,)]*), ((?:[^,)]+))((?:,(?:\n\s*)? [^,)]*)*)\)
-//.{ .name = "${2}", .ret = ${1}, .params = &.{${3}} },
-
 pub const Array = opaque {};
 pub const Assembly = opaque {};
 pub const Class = opaque {};
@@ -22,114 +19,102 @@ pub const Object = opaque {};
 pub const String = opaque {};
 pub const Thread = opaque {};
 
-const table = @import("func_import.zig").defineFuncImportTable("mono_", &.{
-    .{ .name = "thread_current", .ret = *Thread, .params = &.{} },
-    .{ .name = "thread_set_main", .ret = void, .params = &.{
-        .{ .name = "thread", .type = *Thread },
-    } },
+const cc: std.builtin.CallingConvention = .c;
 
-    .{ .name = "jit_init_version", .ret = *Domain, .params = &.{
-        .{ .name = "root_domain_name", .type = [*:0]const u8 },
-        .{ .name = "runtime_version", .type = [*:0]const u8 },
-    } },
-    .{ .name = "domain_assembly_open", .ret = *Assembly, .params = &.{
-        .{ .name = "domain", .type = *anyopaque },
-        .{ .name = "name", .type = [*:0]const u8 },
-    } },
-    .{ .name = "assembly_get_image", .ret = *Image, .params = &.{
-        .{ .name = "assembly", .type = *Assembly },
-    } },
-    .{
-        .name = "runtime_invoke",
-        .ret = ?*Object,
-        .params = &.{
-            .{ .name = "method", .type = *Method },
-            .{ .name = "obj", .type = ?*Object },
-            // TODO: find docs and confirm this is nullable
-            .{ .name = "params", .type = ?*?*anyopaque },
-            .{ .name = "exc", .type = *?*Object },
-        },
-    },
+const table = @import("func_import.zig").defineFuncImportTable("mono_", struct {
+    thread_current: fn () callconv(cc) *Thread,
+    thread_set_main: fn (thread: *Thread) callconv(cc) void,
 
-    .{ .name = "method_desc_new", .ret = *MethodDesc, .params = &.{
-        .{ .name = "name", .type = [*:0]const u8 },
-        .{ .name = "include_namespace", .type = i32 },
-    } },
-    .{ .name = "method_desc_search_in_image", .ret = ?*Method, .params = &.{
-        .{ .name = "desc", .type = *MethodDesc },
-        .{ .name = "image", .type = *Image },
-    } },
-    .{ .name = "method_desc_free", .ret = void, .params = &.{
-        .{ .name = "desc", .type = *MethodDesc },
-    } },
-    .{ .name = "method_signature", .ret = *MethodSignature, .params = &.{
-        .{ .name = "method", .type = *Method },
-    } },
-    .{ .name = "signature_get_param_count", .ret = u32, .params = &.{
-        .{ .name = "sig", .type = *MethodSignature },
-    } },
+    jit_init_version: fn (
+        root_domain_name: [*:0]const u8,
+        runtime_version: [*:0]const u8,
+    ) callconv(cc) *Domain,
+    domain_assembly_open: fn (
+        domain: *anyopaque,
+        name: [*:0]const u8,
+    ) callconv(cc) *Assembly,
+    assembly_get_image: fn (assembly: *Assembly) callconv(cc) *Image,
+    runtime_invoke: fn (
+        method: *Method,
+        obj: ?*Object,
+        // TODO: find docs and confirm this is nullable
+        params: ?*?*anyopaque,
+        exc: *?*Object,
+    ) callconv(cc) ?*Object,
 
-    .{ .name = "domain_set_config", .ret = void, .params = &.{
-        .{ .name = "domain", .type = *Domain },
-        .{ .name = "base_dir", .type = [*:0]const u8 },
-        .{ .name = "config_file_name", .type = [*:0]const u8 },
-    } },
-    .{ .name = "array_new", .ret = *Array, .params = &.{
-        .{ .name = "domain", .type = *Domain },
-        .{ .name = "eclass", .type = *anyopaque },
-        .{ .name = "n", .type = u32 },
-    } },
-    .{ .name = "get_string_class", .ret = *Class, .params = &.{} },
+    method_desc_new: fn (
+        name: [*:0]const u8,
+        include_namespace: i32,
+    ) callconv(cc) *MethodDesc,
+    method_desc_search_in_image: fn (
+        desc: *MethodDesc,
+        image: *Image,
+    ) callconv(cc) ?*Method,
+    method_desc_free: fn (desc: *MethodDesc) callconv(cc) void,
+    method_signature: fn (method: *Method) callconv(cc) *MethodSignature,
+    signature_get_param_count: fn (sig: *MethodSignature) callconv(cc) u32,
 
-    .{ .name = "assembly_getrootdir", .ret = [*:0]const u8, .params = &.{} },
+    domain_set_config: fn (
+        domain: *Domain,
+        base_dir: [*:0]const u8,
+        config_file_name: [*:0]const u8,
+    ) callconv(cc) void,
+    array_new: fn (
+        domain: *Domain,
+        eclass: *anyopaque,
+        n: u32,
+    ) callconv(cc) *Array,
+    get_string_class: fn () callconv(cc) *Class,
 
-    .{ .name = "set_dirs", .ret = void, .params = &.{
-        .{ .name = "assembly_dir", .type = [*:0]const u8 },
-        .{ .name = "config_dir", .type = [*:0]const u8 },
-    } },
-    .{ .name = "config_parse", .ret = void, .params = &.{
-        .{ .name = "filename", .type = ?[*:0]const u8 },
-    } },
-    .{ .name = "set_assemblies_path", .ret = void, .params = &.{
-        .{ .name = "path", .type = [*:0]const u8 },
-    } },
-    .{ .name = "object_to_string", .ret = *String, .params = &.{
-        .{ .name = "obj", .type = *Object },
-        .{ .name = "exc", .type = ?*?*Object },
-    } },
-    .{ .name = "string_to_utf8", .ret = [*:0]const u8, .params = &.{
-        .{ .name = "str", .type = *String },
-    } },
-    .{ .name = "free", .ret = void, .params = &.{
-        .{ .name = "ptr", .type = *anyopaque },
-    } },
-    .{ .name = "image_open_from_data_with_name", .ret = *Image, .params = &.{
-        .{ .name = "data", .type = [*]const u8 },
-        .{ .name = "data_len", .type = u32 },
-        .{ .name = "need_copy", .type = i32 },
-        .{ .name = "status", .type = *ImageOpenStatus },
-        .{ .name = "refonly", .type = i32 },
-        .{ .name = "name", .type = [*:0]const u8 },
-    } },
-    .{ .name = "assembly_load_from_full", .ret = *Assembly, .params = &.{
-        .{ .name = "image", .type = *anyopaque },
-        .{ .name = "fname", .type = [*:0]const u8 },
-        .{ .name = "status", .type = *ImageOpenStatus },
-        .{ .name = "refonly", .type = i32 },
-    } },
+    assembly_getrootdir: fn () callconv(cc) [*:0]const u8,
 
-    .{ .name = "jit_parse_options", .ret = void, .params = &.{
-        .{ .name = "argc", .type = i32 },
-        .{ .name = "argv", .type = [*]const [*:0]const u8 },
-    } },
-    .{ .name = "debug_init", .ret = void, .params = &.{
-        .{ .name = "domain", .type = DebugFormat },
-    } },
-    .{ .name = "debug_domain_create", .ret = void, .params = &.{
-        .{ .name = "domain", .type = *Domain },
-    } },
-    .{ .name = "debug_enabled", .ret = i32, .params = &.{} },
-}, .c);
+    set_dirs: fn (
+        assembly_dir: [*:0]const u8,
+        config_dir: [*:0]const u8,
+    ) callconv(cc) void,
+    config_parse: fn (
+        filename: ?[*:0]const u8,
+    ) callconv(cc) void,
+    set_assemblies_path: fn (
+        path: [*:0]const u8,
+    ) callconv(cc) void,
+    object_to_string: fn (
+        obj: *Object,
+        exc: ?*?*Object,
+    ) callconv(cc) *String,
+    string_to_utf8: fn (
+        str: *String,
+    ) callconv(cc) [*:0]const u8,
+    free: fn (
+        ptr: *anyopaque,
+    ) callconv(cc) void,
+    image_open_from_data_with_name: fn (
+        data: [*]const u8,
+        data_len: u32,
+        need_copy: i32,
+        status: *ImageOpenStatus,
+        refonly: i32,
+        name: [*:0]const u8,
+    ) callconv(cc) *Image,
+    assembly_load_from_full: fn (
+        image: *anyopaque,
+        fname: [*:0]const u8,
+        status: *ImageOpenStatus,
+        refonly: i32,
+    ) callconv(cc) *Assembly,
+
+    jit_parse_options: fn (
+        argc: i32,
+        argv: [*]const [*:0]const u8,
+    ) callconv(cc) void,
+    debug_init: fn (
+        domain: DebugFormat,
+    ) callconv(cc) void,
+    debug_domain_create: fn (
+        domain: *Domain,
+    ) callconv(cc) void,
+    debug_enabled: fn () callconv(cc) i32,
+});
 
 pub const addrs = &table.addrs;
 pub const load = table.load;
