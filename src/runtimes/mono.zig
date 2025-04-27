@@ -187,7 +187,7 @@ pub fn image_open_from_file_with_name(
             alloc,
             std.math.maxInt(usize),
             @intCast(stat_size),
-            @alignOf(std.c.max_align_t),
+            .of(std.c.max_align_t),
             0,
         ) catch |e| {
             logger.err("Failed to read Mono image file: {}", .{e});
