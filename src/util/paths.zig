@@ -10,23 +10,24 @@ const os_char = util.os_char;
 
 const panicWindowsError = @import("../windows/util.zig").panicWindowsError;
 
-pub fn file_exists(file: [*:0]const os_char) bool {
+pub fn exists(path: [*:0]const os_char, comptime filter: enum { file, directory }) bool {
     if (builtin.os.tag == .windows) {
-        const attrs = std.os.windows.GetFileAttributesW(file) catch return false;
-        return attrs & std.os.windows.FILE_ATTRIBUTE_DIRECTORY == 0;
+        const attrs = std.os.windows.GetFileAttributesW(path) catch return false;
+        return switch (filter) {
+            .file => attrs & std.os.windows.FILE_ATTRIBUTE_DIRECTORY == 0,
+            .directory => attrs & std.os.windows.FILE_ATTRIBUTE_DIRECTORY != 0,
+        };
     } else {
-        std.fs.cwd().accessZ(std.mem.span(file), .{}) catch return false;
-        return true;
-    }
-}
-
-pub fn folder_exists(file: [*:0]const os_char) bool {
-    if (builtin.os.tag == .windows) {
-        const attrs = std.os.windows.GetFileAttributesW(file) catch return false;
-        return attrs & std.os.windows.FILE_ATTRIBUTE_DIRECTORY != 0;
-    } else {
-        const stat = std.fs.cwd().statFile(std.mem.span(file)) catch return false;
-        return stat.kind == .directory;
+        switch (filter) {
+            .file => {
+                std.fs.cwd().accessZ(std.mem.span(path), .{}) catch return false;
+                return true;
+            },
+            .directory => {
+                const stat = std.fs.cwd().statFile(std.mem.span(path)) catch return false;
+                return stat.kind == .directory;
+            },
+        }
     }
 }
 
@@ -62,42 +63,6 @@ pub const ModulePathBuf = struct {
         }
     }
 };
-
-fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
-    if (builtin.os.tag == .windows) {
-        // According to official docs, in this case, `needed` includes the null-terminator...
-        const needed = std.os.windows.kernel32.GetFullPathNameW(
-            path,
-            0,
-            util.empty(u16),
-            null,
-        );
-        if (needed == 0) {
-            panicWindowsError("GetFullPathNameW");
-        }
-        const res = alloc.alloc(os_char, @intCast(needed)) catch @panic("Out of memory");
-        // but in this case `len` does not include the null-terminator.
-        const len = std.os.windows.kernel32.GetFullPathNameW(
-            path,
-            needed,
-            // this should be safe because the buffer is only written to
-            @ptrCast(res.ptr),
-            null,
-        );
-        if (len == 0) {
-            panicWindowsError("GetFullPathNameW");
-        }
-        // see comments above for why this is `>=` instead of `>`
-        if (len != needed - 1) {
-            @panic("Path changed under us");
-        }
-        return res[0..len :0];
-    } else {
-        var buf: [std.fs.max_path_bytes]u8 = undefined;
-        const slice = std.fs.realpathZ(path, &buf) catch |e| std.debug.panic("Failed to resolve a real path: {}", .{e});
-        return toOsString(slice);
-    }
-}
 
 pub fn getWorkingDir() ![:0]os_char {
     switch (builtin.os.tag) {
@@ -174,18 +139,6 @@ pub fn getFileName(comptime Char: type, path: []const Char, with_ext: bool) []co
     const parts = splitPath(Char, path);
     const end = if (with_ext) path.len else parts.ext;
     return path[parts.parent..end];
-}
-
-fn toOsString(buf: []const u8) [:0]os_char {
-    if (builtin.os.tag == .windows) {
-        return std.unicode.wtf8ToWtf16LeAllocZ(alloc, buf) catch |e| switch (e) {
-            error.OutOfMemory => @panic("Out of memory"),
-            // selfExePath and realpath guarantee returning valid WTF-8 on Windows
-            error.InvalidWtf8 => crash.crashUnreachable(@src()),
-        };
-    } else {
-        return alloc.dupeZ(u8, buf) catch @panic("Out of memory");
-    }
 }
 
 test "get_folder_name" {

@@ -177,8 +177,8 @@ fn il2cpp_doorstop_bootstrap() void {
     logger.debug("CoreCLR runtime path: {}", .{util.fmtString(clr_runtime_coreclr_path)});
     logger.debug("CoreCLR corlib dir: {}", .{util.fmtString(clr_corlib_dir)});
 
-    if (!util.paths.file_exists(clr_runtime_coreclr_path) or
-        !util.paths.folder_exists(clr_corlib_dir))
+    if (!util.paths.exists(clr_runtime_coreclr_path, .file) or
+        !util.paths.exists(clr_corlib_dir, .directory))
     {
         logger.debug("CoreCLR startup dirs are not set up skipping invoking Doorstop", .{});
         return;
