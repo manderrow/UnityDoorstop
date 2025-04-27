@@ -43,9 +43,6 @@ pub fn entrypoint(module: if (builtin.os.tag == .windows) std.os.windows.HMODULE
     if (builtin.os.tag == .windows) {
         root.hooks.windows.stdout_handle = std.os.windows.GetStdHandle(std.os.windows.STD_OUTPUT_HANDLE) catch null;
         root.hooks.windows.stderr_handle = std.os.windows.GetStdHandle(std.os.windows.STD_ERROR_HANDLE) catch null;
-
-        debug_env.dumpStdHandle("output", root.hooks.windows.stdout_handle);
-        debug_env.dumpStdHandle("error", root.hooks.windows.stderr_handle);
     }
 
     switch (builtin.os.tag) {
