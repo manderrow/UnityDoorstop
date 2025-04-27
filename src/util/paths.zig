@@ -100,12 +100,24 @@ fn get_full_path(path: [*:0]const os_char) [*:0]os_char {
 }
 
 pub fn getWorkingDir() ![:0]os_char {
-    var buf: [std.fs.max_path_bytes]u8 = undefined;
-    const slice = switch (builtin.os.tag) {
-        .windows => try std.fs.cwd().realpathW(std.unicode.wtf8ToWtf16LeStringLiteral("."), &buf),
-        else => try std.fs.cwd().realpathZ(".", &buf),
-    };
-    return toOsString(slice);
+    switch (builtin.os.tag) {
+        .windows => {
+            var buf: [std.os.windows.PATH_MAX_WIDE:0]u16 = undefined;
+            const result = std.os.windows.kernel32.GetCurrentDirectoryW(buf.len + 1, &buf);
+            if (result == 0) {
+                switch (std.os.windows.GetLastError()) {
+                    else => |err| return std.os.windows.unexpectedError(err),
+                }
+            }
+            std.debug.assert(result <= buf.len);
+            return alloc.dupeZ(u16, buf[0..result]);
+        },
+        else => {
+            var buf: [std.fs.max_path_bytes]u8 = undefined;
+            const slice = try std.posix.getcwd(&buf);
+            return alloc.dupeZ(u8, slice);
+        },
+    }
 }
 
 pub const ProgramPathBuf = struct {
