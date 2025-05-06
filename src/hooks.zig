@@ -192,7 +192,8 @@ fn redirectInit(
                 // However, using handle seems to cause issues on some distros, so we pass
                 // the resolved symbol instead.
                 // TODO: document specific cases
-                var buf: util.paths.ModulePathBuf = undefined;
+                var buf = alloc.create(util.paths.ModulePathBuf) catch @panic("Out of memory");
+                defer alloc.destroy(buf);
                 const path = buf.get(switch (builtin.os.tag) {
                     .windows => handle,
                     else => std.c.dlsym(handle, name),
