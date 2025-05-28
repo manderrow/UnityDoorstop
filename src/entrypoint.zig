@@ -85,7 +85,7 @@ pub const windows = struct {
             return std.os.windows.TRUE;
         }
 
-        entrypoint(@ptrCast(hInstDll));
+        @call(.never_inline, entrypoint, .{@as(std.os.windows.HMODULE, (@ptrCast(hInstDll)))});
 
         return std.os.windows.TRUE;
     }
