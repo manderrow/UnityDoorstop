@@ -1,2 +1,2 @@
 [tools]
-zig = "ref:master"
+zig = "master"
