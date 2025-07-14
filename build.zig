@@ -68,6 +68,7 @@ fn createLib(
         .linkage = .dynamic,
         .name = b.fmt("UnityDoorstop_{s}", .{@tagName(target.result.cpu.arch)}),
         .root_module = lib_mod,
+        .use_llvm = true,
     });
 
     if (target.result.os.tag != .windows) {
