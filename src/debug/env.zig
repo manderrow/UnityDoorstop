@@ -10,14 +10,14 @@ pub fn dumpProgramPath() void {
     var program_path_buf: util.paths.ProgramPathBuf = undefined;
     const app_path = program_path_buf.get();
     const app_dir = util.paths.getFolderName(util.os_char, app_path);
-    logger.debug("Executable path: {}", .{util.fmtString(app_path)});
-    logger.debug("Application dir: {}", .{util.fmtString(app_dir)});
+    logger.debug("Executable path: {f}", .{util.fmtString(app_path)});
+    logger.debug("Application dir: {f}", .{util.fmtString(app_dir)});
 }
 
 pub fn dumpWorkingDir() void {
     const working_dir = util.paths.getWorkingDir() catch |e| std.debug.panic("Failed to determine current working directory path: {}", .{e});
     defer alloc.free(working_dir);
-    logger.debug("Working dir: {}", .{util.fmtString(working_dir)});
+    logger.debug("Working dir: {f}", .{util.fmtString(working_dir)});
 }
 
 pub fn dumpDoorstopPath(module: if (builtin.os.tag == .windows) std.os.windows.HMODULE else void) void {
@@ -28,5 +28,5 @@ pub fn dumpDoorstopPath(module: if (builtin.os.tag == .windows) std.os.windows.H
         else => &dumpDoorstopPath,
     }).?;
 
-    logger.debug("Doorstop library path: {}", .{util.fmtString(doorstop_path)});
+    logger.debug("Doorstop library path: {f}", .{util.fmtString(doorstop_path)});
 }

@@ -87,11 +87,11 @@ fn Protected(comptime T: type) type {
 fn getDllThunk(module: std.os.windows.HMODULE, target_dll: [:0]const u8, target_function: *const anyopaque) !Protected(*const anyopaque) {
     var thunks = getDllThunks(module, target_dll) orelse return error.NoDllMatch;
 
-    logger.debug("  searching for {}", .{root.util.fmtAddress(target_function)});
+    logger.debug("  searching for {f}", .{root.util.fmtAddress(target_function)});
 
     while (thunks[0]) |*thunk| : (thunks += 1) {
         if (thunk.* == target_function) {
-            logger.debug("    found {} in {}", .{ root.util.fmtAddress(target_function), root.util.fmtAddress(thunk) });
+            logger.debug("    found {f} in {f}", .{ root.util.fmtAddress(target_function), root.util.fmtAddress(thunk) });
             return .{ .ptr = thunk };
         }
     }

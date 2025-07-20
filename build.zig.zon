@@ -5,7 +5,7 @@
 
     .fingerprint = 0x6002b2b610072fc5,
 
-    .minimum_zig_version = "0.15.0-dev.386+2e35fdd03",
+    .minimum_zig_version = "0.15.0-dev.1092+d772c0627",
 
     .dependencies = .{
         .plthook = .{

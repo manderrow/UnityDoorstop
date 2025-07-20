@@ -25,10 +25,11 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
             const program_path = program_path_buf.get();
             const app_folder = util.paths.getFolderName(u8, util.paths.getFolderName(u8, program_path));
 
-            break :blk std.fmt.allocPrintZ(
+            break :blk std.fmt.allocPrintSentinel(
                 alloc,
                 "{s}/Resources/Data/boot.config",
                 .{app_folder},
+                0,
             ) catch @panic("Out of memory");
         },
         else => blk: {
@@ -45,8 +46,8 @@ fn hookBootConfigCommon() ?[*:0]const os_char {
     defer alloc.free(path);
 
     defaultBootConfig = util.file_identity.getFileIdentity(null, path) catch |e| {
-        std.debug.panic("Failed to get identity of default boot.config file at \"{s}\": {}", .{
-            if (builtin.os.tag == .windows) std.unicode.fmtUtf16Le(path) else path,
+        std.debug.panic("Failed to get identity of default boot.config file at \"{f}\": {}", .{
+            util.fmtString(path),
             e,
         });
     };
@@ -183,7 +184,7 @@ fn redirectInit(
     if (std.mem.eql(u8, name, args.name)) {
         if (!initialized) {
             initialized = true;
-            logger.debug("Intercepted {s} from {}", .{ args.name, util.fmtAddress(handle) });
+            logger.debug("Intercepted {s} from {f}", .{ args.name, util.fmtAddress(handle) });
             // the old code had the next two bits swapped on nix. Test and see if it matters.
             if (args.should_capture_mono_path) {
                 // Resolve dlsym so that it can be passed to capture_mono_path.
@@ -197,7 +198,7 @@ fn redirectInit(
                 const path = buf.get(switch (builtin.os.tag) {
                     .windows => handle,
                     else => std.c.dlsym(handle, name),
-                }) orelse std.debug.panic("Failed to resolve path to module {}", .{util.fmtAddress(handle)});
+                }) orelse std.debug.panic("Failed to resolve path to module {f}", .{util.fmtAddress(handle)});
                 util.setEnv("DOORSTOP_MONO_LIB_PATH", path);
             }
             args.init_func(handle);
@@ -217,14 +218,14 @@ fn dlsym_hook(handle: util.Module(false), name_ptr: [*:0]const u8) callconv(if (
             // Documented that if the "HIWORD" is 0, the name_ptr actually specifies an
             // ordinal. On 64-bit, this seems to be implemented more like a cast,
             // checking if the upper 48 bits are 0 rather than just the upper 16.
-            logger.debug("dlsym({}, {})", .{ util.fmtAddress(handle), ordinal });
+            logger.debug("dlsym({f}, {})", .{ util.fmtAddress(handle), ordinal });
             return std.os.windows.kernel32.GetProcAddress(handle, name_ptr);
         }
     }
 
     const name = std.mem.span(name_ptr);
 
-    logger.debug("dlsym({}, \"{s}\")", .{ util.fmtAddress(handle), name });
+    logger.debug("dlsym({f}, \"{f}\")", .{ util.fmtAddress(handle), std.zig.fmtString(name) });
 
     for ([_]RedirectInitArgs{
         .{ .name = "il2cpp_init", .init_func = &runtimes.il2cpp.load, .target = &bootstrap.init_il2cpp, .should_capture_mono_path = false },

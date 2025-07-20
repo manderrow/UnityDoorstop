@@ -3,6 +3,7 @@ const std = @import("std");
 const root = @import("../root.zig");
 
 const alloc = root.alloc;
+const util = root.util;
 const os_char = root.util.os_char;
 
 pub var stdout_handle: ?std.os.windows.HANDLE = null;
@@ -64,18 +65,14 @@ fn genCreateFileHook(comptime char: type, comptime real_fn: CreateFileFn(char)) 
             }
 
             const id = root.util.file_identity.getFileIdentity(handle, &.{}) catch |e| {
-                root.logger.err("Failed to get identity of file \"{s}\": {}", .{ switch (char) {
-                    u8 => lpFileName,
-                    u16 => std.unicode.fmtUtf16Le(std.mem.span(lpFileName)),
-                    else => @compileError("Unsupported char type " ++ @typeName(char)),
-                }, e });
+                root.logger.err("Failed to get identity of file \"{f}\": {}", .{ util.FmtString(char){ .str = std.mem.span(lpFileName) }, e });
                 return handle;
             };
 
             if (root.util.file_identity.are_same(id, root.hooks.defaultBootConfig)) {
                 std.os.windows.CloseHandle(handle);
                 const boot_config_override = root.config.boot_config_override.?;
-                root.logger.debug("Overriding boot.config to \"{s}\"", .{std.unicode.fmtUtf16Le(boot_config_override)});
+                root.logger.debug("Overriding boot.config to \"{f}\"", .{std.unicode.fmtUtf16Le(boot_config_override)});
                 // caller can handle the error
                 return std.os.windows.kernel32.CreateFileW(
                     boot_config_override,

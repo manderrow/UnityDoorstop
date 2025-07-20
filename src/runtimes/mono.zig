@@ -157,7 +157,7 @@ pub fn image_open_from_file_with_name(
             .windows => blk1: {
                 const cwd = std.fs.cwd();
                 logger.debug("got cwd", .{});
-                logger.debug("opening {}", .{std.unicode.fmtUtf16Le(path)});
+                logger.debug("opening {f}", .{std.unicode.fmtUtf16Le(path)});
                 const prefixed_path = std.os.windows.wToPrefixedFileW(cwd.fd, path) catch |e| break :blk1 e;
                 break :blk1 cwd.openFileW(prefixed_path.span(), .{});
             },

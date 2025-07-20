@@ -26,17 +26,8 @@ pub fn empty(comptime T: type) *[0:0]T {
 pub const FmtAddress = struct {
     addr: usize,
 
-    pub fn format(
-        self: @This(),
-        comptime fmt: []const u8,
-        _: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        if (fmt.len == 0) {
-            return writer.print(std.fmt.comptimePrint("0x{{?x:0>{}}}", .{@sizeOf(*anyopaque) * 2}), .{self.addr});
-        } else {
-            @compileError("unknown format string: '" ++ fmt ++ "'");
-        }
+    pub fn format(self: @This(), writer: *std.io.Writer) !void {
+        return writer.print(std.fmt.comptimePrint("0x{{x:0>{}}}", .{@sizeOf(*anyopaque) * 2}), .{self.addr});
     }
 };
 
@@ -44,28 +35,21 @@ pub fn fmtAddress(ptr: anytype) FmtAddress {
     return .{ .addr = @intFromPtr(ptr) };
 }
 
-pub const FmtString = struct {
-    str: []const os_char,
+pub fn FmtString(comptime char: type) type {
+    return struct {
+        str: []const char,
 
-    pub fn format(
-        self: @This(),
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        if (builtin.os.tag == .windows) {
-            return std.unicode.fmtUtf16Le(self.str).format(fmt, options, writer);
-        } else {
-            if (comptime fmt.len == 0 or std.mem.eql(u8, fmt, "s")) {
-                return writer.writeAll(self.str);
+        pub fn format(self: @This(), writer: *std.io.Writer) !void {
+            if (char == u16) {
+                return std.unicode.fmtUtf16Le(self.str).format(writer);
             } else {
-                @compileError("unknown format string: '" ++ fmt ++ "'");
+                return writer.writeAll(self.str);
             }
         }
-    }
-};
+    };
+}
 
-pub fn fmtString(str: []const os_char) FmtString {
+pub fn fmtString(str: []const os_char) FmtString(os_char) {
     return .{ .str = str };
 }
 

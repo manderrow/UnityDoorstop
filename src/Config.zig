@@ -4,6 +4,7 @@ const std = @import("std");
 const root = @import("root.zig");
 const alloc = root.alloc;
 const logger = root.logger;
+const fmtString = root.util.fmtString;
 const os_char = root.util.os_char;
 
 /// Path to a managed assembly to invoke.
@@ -61,10 +62,7 @@ inline fn getEnvBool(comptime key: []const u8) bool {
 
 fn invalidEnvValue(key: []const u8, value: [:0]const os_char) noreturn {
     @branchHint(.cold);
-    std.debug.panic("Invalid value for environment variable {s}: {s}", .{ key, switch (builtin.os.tag) {
-        .windows => std.unicode.fmtUtf16Le(value),
-        else => value,
-    } });
+    std.debug.panic("Invalid value for environment variable {s}: {f}", .{ key, fmtString(value) });
 }
 
 fn getEnvBoolOs(key: EnvKey) bool {

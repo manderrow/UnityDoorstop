@@ -61,7 +61,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
         util.setEnv("DOORSTOP_MANAGED_FOLDER_DIR", norm_assembly_dir.str);
     }
 
-    logger.debug("Opening assembly: {}", .{util.fmtString(config.target_assembly.?)});
+    logger.debug("Opening assembly: {f}", .{util.fmtString(config.target_assembly.?)});
 
     const dll_path = util.narrow(true, true, config.target_assembly.?);
     defer dll_path.deinit();
@@ -70,7 +70,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
         var s = mono.ImageOpenFileStatus.ok;
         const image = mono.image_open_from_file_with_name(config.target_assembly.?, &s, 0, dll_path.str);
         if (s != .ok or image == null) {
-            logger.err("Failed to open assembly: {s}. Got result: {}", .{ util.fmtString(config.target_assembly.?), s });
+            logger.err("Failed to open assembly: {f}. Got result: {}", .{ util.fmtString(config.target_assembly.?), s });
             return;
         }
         break :blk image.?;
@@ -81,7 +81,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
     var s = mono.ImageOpenStatus.ok;
     _ = mono.addrs.assembly_load_from_full.?(image, dll_path.str, &s, 0);
     if (s != .ok) {
-        logger.err("Failed to load assembly: {s}. Got result: {}", .{ util.fmtString(config.target_assembly.?), s });
+        logger.err("Failed to load assembly: {f}. Got result: {}", .{ util.fmtString(config.target_assembly.?), s });
         return;
     }
 
@@ -98,7 +98,7 @@ fn mono_doorstop_bootstrap(mono_domain: *mono.Domain) void {
         std.debug.panic("Method has {} parameters; expected 0", .{params});
     }
 
-    logger.debug("Invoking method {}", .{util.fmtAddress(method)});
+    logger.debug("Invoking method {f}", .{util.fmtAddress(method)});
     var exc: ?*mono.Object = null;
     _ = mono.addrs.runtime_invoke.?(method, null, null, &exc);
     if (exc) |e| {
@@ -174,8 +174,8 @@ fn il2cpp_doorstop_bootstrap() void {
         @panic("CoreCLR paths not set");
     };
 
-    logger.debug("CoreCLR runtime path: {}", .{util.fmtString(clr_runtime_coreclr_path)});
-    logger.debug("CoreCLR corlib dir: {}", .{util.fmtString(clr_corlib_dir)});
+    logger.debug("CoreCLR runtime path: {f}", .{util.fmtString(clr_runtime_coreclr_path)});
+    logger.debug("CoreCLR corlib dir: {f}", .{util.fmtString(clr_corlib_dir)});
 
     if (!util.paths.exists(clr_runtime_coreclr_path, .file) or
         !util.paths.exists(clr_corlib_dir, .directory))
@@ -188,7 +188,7 @@ fn il2cpp_doorstop_bootstrap() void {
         .windows => std.os.windows.LoadLibraryW(clr_runtime_coreclr_path) catch @panic("Failed to load CoreCLR runtime"),
         else => std.c.dlopen(clr_runtime_coreclr_path, .{ .LAZY = true }) orelse @panic("Failed to load CoreCLR runtime"),
     };
-    logger.debug("Loaded coreclr.dll: {}", .{util.fmtAddress(coreclr_module)});
+    logger.debug("Loaded coreclr.dll: {f}", .{util.fmtAddress(coreclr_module)});
 
     coreclr.load(coreclr_module);
 
@@ -209,9 +209,9 @@ fn il2cpp_doorstop_bootstrap() void {
     const app_paths_env_n = util.narrow(true, true, app_paths_env);
     defer app_paths_env_n.deinit();
 
-    logger.debug("App path: {}", .{util.fmtString(app_path)});
-    logger.debug("Target dir: {}", .{util.fmtString(target_dir)});
-    logger.debug("Target name: {}", .{util.fmtString(target_name)});
+    logger.debug("App path: {f}", .{util.fmtString(app_path)});
+    logger.debug("Target dir: {f}", .{util.fmtString(target_dir)});
+    logger.debug("Target name: {f}", .{util.fmtString(target_name)});
     logger.debug("APP_PATHS: {s}", .{app_paths_env_n.str});
 
     const props = "APP_PATHS";
@@ -282,11 +282,11 @@ pub fn hook_mono_jit_parse_options(argc: c_int, argv: [*][*:0]u8) callconv(.c) v
                 else => s,
             } else "127.0.0.1:10000";
 
-            debug_options = std.fmt.allocPrintZ(alloc, "--debugger-agent=transport=dt_socket,server=y,address={s}{s}{s}", .{
+            debug_options = std.fmt.allocPrintSentinel(alloc, "--debugger-agent=transport=dt_socket,server=y,address={s}{s}{s}", .{
                 mono_debug_address,
                 if (config.mono_debug_suspend) "" else ",suspend=n",
                 if (config.mono_debug_suspend or !mono_is_net35) "" else ",defer=y",
-            }) catch @panic("Out of memory");
+            }, 0) catch @panic("Out of memory");
         }
 
         logger.debug("Debug options: {s}", .{debug_options.?});

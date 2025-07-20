@@ -13,17 +13,16 @@ pub fn log(
 ) void {
     const level_txt = comptime @tagName(message_level);
     const scope_txt = comptime @tagName(scope);
-    const stderr = std.io.getStdErr().writer();
-    var bw = std.io.bufferedWriter(stderr);
-    const writer = bw.writer();
+    var buf: [4096]u8 = undefined;
+    var writer = std.fs.File.stderr().writer(&buf);
 
     std.debug.lockStdErr();
     defer std.debug.unlockStdErr();
     nosuspend {
-        writer.print(
+        writer.interface.print(
             level_txt ++ " " ++ scope_txt ++ " " ++ format ++ "\n",
             args,
         ) catch return;
-        bw.flush() catch return;
+        writer.interface.flush() catch return;
     }
 }
