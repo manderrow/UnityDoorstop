@@ -16,23 +16,26 @@ pub fn defineFuncImportTable(comptime prefix: []const u8, comptime defns: type) 
     comptime {
         const Type = std.builtin.Type;
         const defns_fields = @typeInfo(defns).@"struct".fields;
-        var fields: [defns_fields.len]Type.StructField = undefined;
-        for (defns_fields, &fields) |defn, *field| {
+        var field_names: [defns_fields.len][]const u8 = undefined;
+        var field_types: [defns_fields.len]type = undefined;
+        var field_attrs: [defns_fields.len]Type.Struct.FieldAttributes = undefined;
+        for (defns_fields, &field_names, &field_types, &field_attrs) |defn, *fname, *ftype, *fattrs| {
             const T = ?*const defn.type;
-            field.* = .{
-                .name = defn.name,
-                .type = T,
-                .is_comptime = false,
+            fname.* = defn.name;
+            ftype.* = T;
+            fattrs.* = .{
+                .@"comptime" = false,
+                .@"align" = null,
                 .default_value_ptr = @ptrCast(&@as(T, null)),
-                .alignment = 0,
             };
         }
-        const AddrTable = @Type(.{ .@"struct" = Type.Struct{
-            .fields = &fields,
-            .decls = &.{},
-            .is_tuple = false,
+        const AddrTable = @Struct(.{
             .layout = .auto,
-        } });
+            .BackingInt = null,
+            .field_names = &field_names,
+            .field_types = &field_types,
+            .field_attrs = &field_attrs,
+        });
 
         return struct {
             pub var addrs: AddrTable = .{};
