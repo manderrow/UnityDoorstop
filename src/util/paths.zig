@@ -31,6 +31,17 @@ pub fn exists(path: [*:0]const os_char, comptime filter: enum { file, directory 
     }
 }
 
+/// https://codebrowser.dev/glibc/glibc/dlfcn/dlfcn.h.html#86
+const Dl_info = extern struct {
+  dli_fname: ?[*:0]const u8,
+  dli_fbase: ?*anyopaque,
+  dli_sname: ?[*:0]const u8,
+  dli_saddr: ?*anyopaque,
+};
+
+/// https://codebrowser.dev/glibc/glibc/dlfcn/dlfcn.h.html#96
+extern fn dladdr(address: *const anyopaque, info: *Dl_info) c_int;
+
 pub const ModulePathBuf = struct {
     buf: if (builtin.os.tag == .windows) [std.os.windows.PATH_MAX_WIDE]u16 else void,
 
@@ -48,14 +59,9 @@ pub const ModulePathBuf = struct {
             }
             return self.buf[0..rc :0];
         } else {
-            const dlfcn = @cImport({
-                @cDefine("_GNU_SOURCE", {});
-                @cInclude("dlfcn.h");
-            });
+            var info: Dl_info = undefined;
 
-            var info: dlfcn.Dl_info = undefined;
-
-            if (dlfcn.dladdr(module, &info) == 0) {
+            if (dladdr(module, &info) == 0) {
                 return null;
             }
             self.* = .{ .buf = {} };
